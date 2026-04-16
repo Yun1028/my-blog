@@ -1,0 +1,14 @@
+---
+interface Props {
+  path: string;
+  label: string;
+}
+
+const { path, label } = Astro.props;
+const BASE = import.meta.env.BASE_URL;
+const safePath = `${BASE}${path.replace(/^\//, '')}`;
+---
+
+<a href={safePath} download>
+  <slot>{label}</slot>
+</a>

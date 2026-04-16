@@ -1,18 +1,18 @@
 ---
+const BASE = import.meta.env.BASE_URL;
+
 const slides = [
   {
     type: 'video',
-    src: '/home-slides/dragoon.mp4',
+    src: `${BASE}home-slides/dragoon.mp4`,
     title: 'Dragoon Locomotion'
   },
   // 나중에 이런 식으로 추가
   // {
   //   type: 'video',
-  //   src: '/home-slides/dragoon-demo.mp4',
+  //   src: `${BASE}home-slides/dragoon-demo.mp4`,
   //   title: 'Dragoon Locomotion Demo',
   // },
-
-  // 지금은 한 개만 넣어도 됨
 ];
 ---
 

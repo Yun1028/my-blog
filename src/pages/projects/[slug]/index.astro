@@ -2,6 +2,8 @@
 import MainLayout from '../../../components/MainLayout.astro';
 import { getCollection, render } from 'astro:content';
 
+const BASE = import.meta.env.BASE_URL;
+
 export async function getStaticPaths() {
   const projects = await getCollection('projects');
 
@@ -33,12 +35,12 @@ const { Content } = await render(project);
   <p class="muted">{project.data.description}</p>
 
   {project.data.coverImage && (
-  <img
-    src={project.data.coverImage}
-    alt={`${project.data.title} cover image`}
-    style="width:100%; max-height:600px; object-fit:contain; border-radius:18px; margin:24px 0;"
-  />
-)}
+    <img
+      src={project.data.coverImage}
+      alt={`${project.data.title} cover image`}
+      style="width:100%; max-height:600px; object-fit:contain; border-radius:18px; margin:24px 0;"
+    />
+  )}
 
   <div
     style="
@@ -72,7 +74,7 @@ const { Content } = await render(project);
             >
               <div style="display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap;">
                 <h3 style="margin:0;">
-                  <a href={`/projects/${slug}/${updateSlug}/`}>{update.data.title}</a>
+                  <a href={`${BASE}projects/${slug}/${updateSlug}/`}>{update.data.title}</a>
                 </h3>
                 <span class="muted">{update.data.pubDate.toISOString().slice(0, 10)}</span>
               </div>

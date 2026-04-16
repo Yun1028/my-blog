@@ -4,10 +4,11 @@ pubDate: 2026-03-03
 description: "A full reinforcement learning project inspired by the Dragoon unit from StarCraft."
 summary: "Custom robot design, USD conversion, and locomotion training in Isaac Sim."
 status: "completed"
-coverImage: "/src/content/projects/dragoon-locomotion/dragoonimage.png"
+coverImage: "/public/projects/dragoon-locomotion/dragoonimage.png"
 tags: ["RL", "Robotics", "Isaac Sim", "PPO"]
 ---
----
+
+import Downloadlink from '../../../components/Downloadlink.astro';
 
 ## Video
 
@@ -65,64 +66,7 @@ reward shaping, and locomotion training.
 
 The main USD assets used in this project are provided below.
 
-<div style={{
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: "14px",
-  marginTop: "16px",
-  marginBottom: "28px"
-}}>
-  <a
-    href="/downloads/dragoon-locomotion/assets/dragoon1.usd"
-    download
-    style={{
-      display: "block",
-      border: "1px solid #27304d",
-      borderRadius: "16px",
-      padding: "18px",
-      background: "#0f1530",
-      textDecoration: "none"
-    }}
-  >
-    <strong>dragoon_robot.usd</strong>
-    <p style={{ marginTop: "10px", marginBottom: 0 }}>
-      Main robot USD asset
-    </p>
-  </a>
+<a href="/downloads/dragoon-locomotion/assets/assets.zip" download>
+  Download USD Assets (.zip)
+</a>
 
-  <a
-    href="/downloads/dragoon-locomotion/assets/map1.usd"
-    download
-    style={{
-      display: "block",
-      border: "1px solid #27304d",
-      borderRadius: "16px",
-      padding: "18px",
-      background: "#0f1530",
-      textDecoration: "none"
-    }}
-  >
-    <strong>map_stage_01.usd</strong>
-    <p style={{ marginTop: "10px", marginBottom: 0 }}>
-      First map USD asset
-    </p>
-  </a>
-
-  <a
-    href="/downloads/dragoon-locomotion/assets/map4.usd"
-    download
-    style={{
-      display: "block",
-      border: "1px solid #27304d",
-      borderRadius: "16px",
-      padding: "18px",
-      background: "#0f1530",
-      textDecoration: "none"
-    }}
-  >
-    <strong>map_stage_02.usd</strong>
-    <p style={{ marginTop: "10px", marginBottom: 0 }}>
-      Second map USD asset
-    </p>
-  </a>
-</div>
