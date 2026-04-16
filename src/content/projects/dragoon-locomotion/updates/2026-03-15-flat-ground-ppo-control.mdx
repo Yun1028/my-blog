@@ -1,0 +1,222 @@
+---
+title: "Teaching Basic Motion on Flat Ground with PPO"
+pubDate: 2026-03-15
+description: "Using PPO to train the robot to perform basic commands such as moving, rotating, and stopping on flat terrain."
+---
+
+<div style={{
+  border: "1px solid #27304d",
+  background: "#121831",
+  borderRadius: "18px",
+  padding: "24px",
+  marginTop: "12px"
+}}>
+  <p style={{ margin: 0, fontSize: "1.05rem", lineHeight: "1.85" }}>
+    In this stage, I focused on teaching the robot basic behaviors on flat ground:
+    <strong> moving forward, rotating, and stopping on command.</strong>
+    I used <strong>PPO</strong> as the reinforcement learning algorithm for this phase.
+  </p>
+</div>
+
+## Goal of This Stage
+
+The purpose of this update was to teach the robot stable and basic motion skills on flat terrain before moving on to harder environments.
+
+The key targets were:
+
+- moving forward
+- rotating on command
+- stopping and staying still when needed
+
+These basic motion behaviors were necessary before attempting rough terrain locomotion or more complex navigation tasks.
+
+---
+
+## Training Process
+
+At the beginning of this stage, the training results were unstable and did not match the intended motion behavior.
+
+The robot did not immediately learn proper forward motion, rotation, or stopping.
+After repeated reward adjustment and training analysis, the policy gradually became more aligned with the target behavior.
+
+<div style={{
+  borderLeft: "4px solid #58a6ff",
+  paddingLeft: "16px",
+  marginTop: "16px",
+  marginBottom: "22px"
+}}>
+  <p style={{ margin: 0, lineHeight: "1.8" }}>
+    This stage was mainly about building a reliable foundation.
+    Instead of moving directly to complex environments, I first focused on whether the robot could correctly follow simple motion commands on flat ground.
+  </p>
+</div>
+
+---
+
+## Result Videos
+
+<div style={{
+  display: "grid",
+  gridTemplateColumns: "1fr",
+  gap: "24px",
+  marginTop: "18px",
+  marginBottom: "32px"
+}}>
+  <div style={{
+    border: "1px solid #27304d",
+    borderRadius: "18px",
+    padding: "18px",
+    background: "#0f1530"
+  }}>
+    <h3 style={{ marginTop: 0, marginBottom: "10px" }}>Forward Motion Result</h3>
+    <p style={{ marginTop: 0, marginBottom: "14px", lineHeight: "1.75" }}>
+      This video shows the robot performing stable forward locomotion after reward tuning.
+      The policy became much more consistent compared to the earlier failed training runs.
+    </p>
+
+    <div style={{
+      position: "relative",
+      paddingBottom: "56.25%",
+      height: 0,
+      overflow: "hidden",
+      borderRadius: "14px"
+    }}>
+      <iframe
+        src="https://www.youtube.com/embed/1ULW-1DFXGs"
+        title="Forward Motion Result"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          border: "none"
+        }}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+      />
+    </div>
+  </div>
+
+  <div style={{
+    border: "1px solid #27304d",
+    borderRadius: "18px",
+    padding: "18px",
+    background: "#0f1530"
+  }}>
+    <h3 style={{ marginTop: 0, marginBottom: "10px" }}>Rotation / Stop Result</h3>
+    <p style={{ marginTop: 0, marginBottom: "14px", lineHeight: "1.75" }}>
+      This video shows the robot responding to rotational and stop-related commands.
+      The goal of this stage was not only movement, but also stable control under simple command changes.
+    </p>
+
+    <div style={{
+      position: "relative",
+      paddingBottom: "56.25%",
+      height: 0,
+      overflow: "hidden",
+      borderRadius: "14px"
+    }}>
+      <iframe
+        src="https://www.youtube.com/embed/C00SLfHaL_o"
+        title="Rotation and Stop Result"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          border: "none"
+        }}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+      />
+    </div>
+  </div>
+</div>
+
+---
+
+## Code Downloads
+
+The four main files used in this stage are provided below for download.
+
+<div style={{
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: "14px",
+  marginTop: "16px",
+  marginBottom: "28px"
+}}>
+  <a
+    href="/downloads/dragoon-locomotion/2026-03-15/env.py"
+    download
+    style={{
+      display: "block",
+      border: "1px solid #27304d",
+      borderRadius: "16px",
+      padding: "18px",
+      background: "#0f1530",
+      textDecoration: "none"
+    }}
+  >
+    <strong>env.py</strong>
+    <p style={{ marginTop: "10px", marginBottom: 0 }}>
+      Environment implementation
+    </p>
+  </a>
+
+  <a
+    href="/downloads/dragoon-locomotion/2026-03-15/envcfg.py"
+    download
+    style={{
+      display: "block",
+      border: "1px solid #27304d",
+      borderRadius: "16px",
+      padding: "18px",
+      background: "#0f1530",
+      textDecoration: "none"
+    }}
+  >
+    <strong>envcfg.py</strong>
+    <p style={{ marginTop: "10px", marginBottom: 0 }}>
+      Environment configuration
+    </p>
+  </a>
+
+  <a
+    href="/downloads/dragoon-locomotion/2026-03-15/train.py"
+    download
+    style={{
+      display: "block",
+      border: "1px solid #27304d",
+      borderRadius: "16px",
+      padding: "18px",
+      background: "#0f1530",
+      textDecoration: "none"
+    }}
+  >
+    <strong>train.py</strong>
+    <p style={{ marginTop: "10px", marginBottom: 0 }}>
+      PPO training script
+    </p>
+  </a>
+
+  <a
+    href="/downloads/dragoon-locomotion/2026-03-15/model.py"
+    download
+    style={{
+      display: "block",
+      border: "1px solid #27304d",
+      borderRadius: "16px",
+      padding: "18px",
+      background: "#0f1530",
+      textDecoration: "none"
+    }}
+  >
+    <strong>model.py</strong>
+    <p style={{ marginTop: "10px", marginBottom: 0 }}>
+      Policy / model definition
+    </p>
+  </a>
+</div>

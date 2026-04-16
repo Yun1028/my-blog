@@ -1,0 +1,216 @@
+---
+title: "Hierarchical RL for Directional Decision and Locomotion"
+pubDate: 2026-04-05
+description: "A hierarchical reinforcement learning design that separates high-level direction selection from low-level locomotion control."
+---
+
+## Overview
+
+After observing the limitations of a single flat policy on more decision-oriented maps, I designed a hierarchical reinforcement learning structure for the Dragoon robot.
+
+The main idea was to separate two very different problems:
+
+- choosing where to go
+- learning how to move there
+
+Instead of forcing one policy to simultaneously solve terrain interpretation, directional choice, and joint-level locomotion control, I split the system into a high-level policy and a low-level policy.
+
+In this design, the high-level policy produces a 2D command vector, and the low-level policy learns to execute locomotion that follows that command.
+
+---
+
+## Video
+
+<div style={{
+  position: "relative",
+  paddingBottom: "56.25%",
+  height: 0,
+  overflow: "hidden",
+  borderRadius: "14px"
+}}>
+  <iframe
+    src="https://www.youtube.com/embed/sbJGWmIpGAU"
+    title="HRL Experiment"
+    style={{
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+      border: "none"
+    }}
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
+---
+
+## Motivation
+
+The earlier stages mainly tested whether the robot could move forward and remain stable on structured terrain.
+However, once the environment began to require turning, avoiding walls, and selecting alternative directions, I considered the original single-policy structure too inefficient.
+
+My interpretation at the time was that the search space had become too large for a flat locomotion policy to handle efficiently.
+This led me to a hierarchical formulation in which decision-making and motion execution were treated as different learning problems.
+
+---
+
+## Core Idea
+
+The HRL structure is built around a shared latent representation and a 2D intermediate command.
+
+### High-level policy
+
+The high-level policy observes the environment and produces a 2D latent command `z`.
+
+This command acts as a directional target in the plane.
+It does not directly control the joints.
+Instead, it represents a high-level movement intention such as which direction to move and how strongly to move in that direction.
+
+### Low-level policy
+
+The low-level policy receives both the shared encoded observation and the command `z`.
+Its role is not to decide the route, but to generate stable joint actions that follow the given command.
+
+This separates directional decision-making from actual locomotion execution.
+
+---
+
+## Observation Structure
+
+The policy uses two observation branches:
+
+- **Proprioceptive observation**
+  - heading
+  - base linear velocity
+  - base angular velocity
+  - projected gravity
+  - joint position offsets
+  - joint velocities
+  - previous actions
+  - foot contact states
+  - previous high-level command
+
+- **Terrain observation**
+  - a local 101×101 height map around the robot
+
+This means the system combines internal robot state and local terrain geometry in a multimodal observation design.
+
+---
+
+## Architecture
+
+## Shared encoder
+
+The high-level and low-level policies do not use fully separate encoders.
+Instead, they share a common encoder composed of:
+
+- modality-specific observation normalization
+- a proprioceptive encoder
+- a terrain encoder
+- a fusion MLP
+
+The proprioceptive branch compresses the robot state into a compact latent representation.
+The terrain branch uses a convolutional encoder to extract features from the local height map.
+These features are then concatenated and projected into a shared latent space.
+
+This shared representation is used by both the high-level and low-level policies.
+
+## High-level branch
+
+The high-level branch is trained with SAC.
+
+It takes the shared feature and outputs a Gaussian distribution over the 2D command `z`.
+After sampling, the output is squashed and scaled to produce a bounded continuous high-level motion command.
+
+The high-level critic is implemented with twin Q-networks.
+
+## Low-level branch
+
+The low-level branch is trained with PPO.
+
+It takes the shared feature together with `z` and outputs continuous joint actions for the robot.
+This branch is responsible for command-conditioned locomotion rather than route planning.
+
+---
+
+## Why SAC for the high level and PPO for the low level
+
+I used different RL algorithms for the two levels because their roles were fundamentally different.
+
+The high-level policy needed to make sparse, longer-horizon directional decisions in a continuous latent command space.
+For that reason, I used SAC as the high-level learner.
+
+The low-level policy, in contrast, needed to generate stable locomotion behavior at a finer control frequency.
+For that role, PPO was more suitable as a command-following locomotion controller.
+
+So this HRL design is not just a hierarchy of policies, but also a hierarchy of learning objectives and optimization styles.
+
+---
+
+## Command Interface: z
+
+The central interface of this design is the 2D command `z`.
+
+The high-level policy proposes `z`, and the environment manages the actual command used by the low-level controller.
+During training, random command overrides were also inserted for fixed durations in order to teach the low-level policy to reliably follow externally given commands.
+
+This was important because it allowed the low-level controller to first learn robust command tracking, instead of depending entirely on an already-correct high-level policy from the beginning.
+
+---
+
+## Reward Decomposition
+
+The two levels are trained with different reward structures.
+
+### Low-level reward
+
+The low-level policy is rewarded for how well it follows the command:
+
+- projected speed along `z`
+- alignment with the commanded direction
+- acceleration consistency
+- upright stability
+- low slip
+- low action cost
+- reduced stopping behavior
+
+This makes the low-level objective primarily a command-tracking locomotion objective.
+
+### High-level reward
+
+The high-level reward is more task-oriented:
+
+- forward progress
+- success at reaching the goal
+- penalties for falling
+- penalties for failure-related episode termination
+
+This means the high-level policy is optimized for choosing useful movement intentions rather than producing precise joint behavior.
+
+---
+
+## Temporal Hierarchy
+
+The hierarchy also exists along the time axis.
+
+The low-level policy acts at the normal control frequency.
+The high-level policy updates the command more slowly, holding one command over a fixed interval before choosing the next one.
+
+This turns the architecture into a true hierarchical controller with temporal abstraction, not just two policies stacked together.
+
+---
+
+## Why This Stage Matters
+
+This stage was important because it was the first time I explicitly separated:
+
+- directional decision making
+- command-conditioned locomotion
+
+Rather than treating locomotion and navigation as one inseparable policy problem, I introduced a structured interface between them.
+
+This HRL design became a key step in thinking about how the robot should react when simple forward motion was no longer sufficient.
+
+---

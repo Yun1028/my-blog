@@ -1,0 +1,89 @@
+---
+import MainLayout from '../../../components/MainLayout.astro';
+import { getCollection, render } from 'astro:content';
+
+export async function getStaticPaths() {
+  const projects = await getCollection('projects');
+
+  return projects.map((project) => {
+    const slug = project.id.replace(/\/index$/, '');
+    return {
+      params: { slug },
+      props: { project, slug },
+    };
+  });
+}
+
+const { project, slug } = Astro.props;
+
+const allUpdates = await getCollection('projectUpdates');
+const updates = allUpdates
+  .filter((update) => update.id.startsWith(`${slug}/updates/`))
+  .sort((a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime());
+
+const { Content } = await render(project);
+---
+
+<MainLayout title={`${project.data.title} | Projects`}>
+  <p class="muted">
+    {project.data.pubDate.toISOString().slice(0, 10)} · {project.data.status}
+  </p>
+
+  <h1>{project.data.title}</h1>
+  <p class="muted">{project.data.description}</p>
+
+  {project.data.coverImage && (
+  <img
+    src={project.data.coverImage}
+    alt={`${project.data.title} cover image`}
+    style="width:100%; max-height:600px; object-fit:contain; border-radius:18px; margin:24px 0;"
+  />
+)}
+
+  <div
+    style="
+      border:1px solid #27304d;
+      background:#121831;
+      padding:24px;
+      border-radius:18px;
+      margin-top:20px;
+    "
+  >
+    <Content />
+  </div>
+
+  <section class="section">
+    <h2>Updates</h2>
+
+    {updates.length === 0 ? (
+      <p class="muted">No updates yet.</p>
+    ) : (
+      <div style="display:grid; gap:16px;">
+        {updates.map((update) => {
+          const updateSlug = update.id.split('/updates/')[1].replace(/\.mdx?$/, '');
+          return (
+            <article
+              style="
+                border:1px solid #27304d;
+                background:#121831;
+                padding:20px;
+                border-radius:16px;
+              "
+            >
+              <div style="display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+                <h3 style="margin:0;">
+                  <a href={`/projects/${slug}/${updateSlug}/`}>{update.data.title}</a>
+                </h3>
+                <span class="muted">{update.data.pubDate.toISOString().slice(0, 10)}</span>
+              </div>
+
+              <p class="muted" style="margin-top:10px;">
+                {update.data.description}
+              </p>
+            </article>
+          );
+        })}
+      </div>
+    )}
+  </section>
+</MainLayout>

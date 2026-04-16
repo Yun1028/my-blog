@@ -1,0 +1,60 @@
+---
+title: "First Map Test"
+pubDate: 2026-03-23
+description: "Testing the robot on the first custom map with a simple forward-only policy."
+---
+
+## Overview
+
+In this stage, I tested the robot on the first custom map I created.
+
+To keep the task simple, the environment was designed so that the robot only needed to move forward.
+This made it possible to check whether the robot could handle basic terrain changes without requiring a complex policy.
+
+As shown in the video, the robot was able to:
+
+- move straight forward
+- climb stairs
+- cross a simple hurdle
+
+This result confirmed that the robot could already handle several basic obstacles on a custom map.
+
+---
+
+## Test Video
+
+<div style={{
+  border: "1px solid #27304d",
+  borderRadius: "18px",
+  padding: "18px",
+  background: "#0f1530",
+  marginTop: "18px",
+  marginBottom: "28px"
+}}>
+  <p style={{ marginTop: 0, marginBottom: "14px", lineHeight: "1.75" }}>
+    Test on the first custom map with a forward-only setup.
+  </p>
+
+  <div style={{
+    position: "relative",
+    paddingBottom: "56.25%",
+    height: 0,
+    overflow: "hidden",
+    borderRadius: "14px"
+  }}>
+    <iframe
+      src="https://www.youtube.com/embed/RvYadUxPZFQ"
+      title="First Map Test"
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        border: "none"
+      }}
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      allowFullScreen
+    />
+  </div>
+</div>

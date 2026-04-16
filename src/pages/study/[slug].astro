@@ -1,0 +1,31 @@
+---
+import MainLayout from '../../components/MainLayout.astro';
+import { getCollection, render } from 'astro:content';
+
+export async function getStaticPaths() {
+  const studyItems = await getCollection('study');
+  return studyItems.map((item) => ({
+    params: { slug: item.id },
+    props: { item },
+  }));
+}
+
+const { item } = Astro.props;
+const { Content } = await render(item);
+---
+
+<MainLayout title={`${item.data.title} | Study`}>
+  <p class="muted">{item.data.pubDate.toISOString().slice(0, 10)}</p>
+  <h1>{item.data.title}</h1>
+  <p class="muted">{item.data.description}</p>
+
+  {item.data.ppt && (
+    <p>
+      <a href={item.data.ppt} target="_blank" rel="noreferrer">Open Slides</a>
+    </p>
+  )}
+
+  <hr style="border-color:#27304d; margin:24px 0;" />
+
+  <Content />
+</MainLayout>

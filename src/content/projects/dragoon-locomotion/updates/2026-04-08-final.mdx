@@ -1,0 +1,62 @@
+---
+title: "Finding the Real Cause [Final]"
+pubDate: 2026-04-08
+description: "A correction stage in which the earlier failure turned out to be an observation-input issue rather than a true exploration problem."
+---
+
+## Overview
+
+During the HRL experiments, I noticed that the robot on the first map behaved differently from the robots on the other maps.
+
+At first, I interpreted the problem as a limitation of exploration or policy structure.
+However, after checking the observation pipeline more carefully, I found that the real issue was in the terrain input.
+
+---
+
+## Video
+
+<div style={{
+  position: "relative",
+  paddingBottom: "56.25%",
+  height: 0,
+  overflow: "hidden",
+  borderRadius: "14px"
+}}>
+  <iframe
+    src="https://www.youtube.com/embed/0u5tJqQbqMs"
+    title="HRL Experiment"
+    style={{
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+      border: "none"
+    }}
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
+---
+
+## What I Found
+
+At the time, I assumed that raycasting was effectively handled per robot, so that each robot would read terrain from the map it was actually placed on.
+
+After checking the setup more carefully, I found that this was not what was happening in my implementation.
+While going back through the official documentation, I also realized that I had misunderstood this part of the raycasting setup.
+
+In practice, all robots were receiving terrain observations based on a single map, which meant that the environments other than the first one were not getting the correct terrain input.
+
+As a result, the earlier failure was not mainly caused by exploration difficulty or model structure.
+The more fundamental issue was that training had been performed with incorrectly connected terrain observations.
+
+---
+
+## What Changed After That
+
+Once I identified the input issue, I did not continue pushing the HRL structure further for this problem.
+
+Instead, I went back to the earlier standard RL codebase, adjusted the map setup, and retrained the policy.
+After that correction, the learning behavior became much more normal, and the previously blocked behaviors were resolved much more directly.

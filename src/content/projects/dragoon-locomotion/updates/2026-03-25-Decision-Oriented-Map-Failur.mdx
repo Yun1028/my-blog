@@ -1,0 +1,168 @@
+---
+title: "Decision-Oriented Map Failure"
+pubDate: 2026-03-25
+description: "A failed attempt at training terrain-aware navigation on a more complex map, and the observation pipeline issue discovered later."
+---
+
+## Overview
+
+After the previous forward-only map experiment, I built a more difficult environment where simple straight locomotion was no longer sufficient.
+
+This map was designed so that the robot had to do more than just move forward.  
+It had to deal with walls, narrow ground, and cliff-like sections, which meant that the policy now needed some degree of situation-dependent decision making.
+
+The main goal of this stage was to test whether the policy could go beyond basic locomotion and begin to choose appropriate actions depending on the local terrain structure.
+
+---
+
+## Video
+
+<div style={{
+  border: "1px solid #27304d",
+  borderRadius: "18px",
+  padding: "18px",
+  background: "#0f1530",
+  marginTop: "18px",
+  marginBottom: "28px"
+}}>
+  <p style={{ marginTop: 0, marginBottom: "14px", lineHeight: "1.75" }}>
+    Experimental result on the first decision-oriented map.
+  </p>
+
+  <div style={{
+    position: "relative",
+    paddingBottom: "56.25%",
+    height: 0,
+    overflow: "hidden",
+    borderRadius: "14px"
+  }}>
+    <iframe
+      src="https://www.youtube.com/embed/6fR3eYNLLEY"
+      title="Decision-Oriented Map Failure"
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        border: "none"
+      }}
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      allowFullScreen
+    />
+  </div>
+</div>
+
+---
+
+## Environment Change
+
+Compared to the earlier map, this environment introduced conditions where the robot could not solve the task by forward motion alone.
+
+The map required the robot to:
+
+- turn when it encountered a wall
+- avoid falling from narrow platforms
+- continue moving through more constrained terrain
+
+This was the first stage where I tried to move from simple locomotion toward terrain-aware action selection.
+
+---
+
+## What I Thought at the Time
+
+At the time, I interpreted the failure as an exploration and search-space problem.
+
+The robot could still learn some degree of forward locomotion, but it did not learn to make the kind of directional decisions that the map required.
+In particular, it failed to consistently choose behaviors such as turning away from a wall or finding an alternative path.
+
+Because of this, I believed that a single flat RL policy was being asked to solve too many things at once:
+
+- locomotion control
+- terrain interpretation
+- directional decision making
+- path adjustment under constraints
+
+That led me to think that the overall search space had become too large and that standard RL was inefficient for this kind of behavior.
+
+This interpretation later became the motivation for exploring a hierarchical design, where high-level direction selection and low-level locomotion control could be separated.
+
+---
+
+## Policy Architecture Used in This Stage
+
+The policy used a multimodal actor-critic architecture with separate encoders for proprioceptive state and terrain observations.
+
+### Observation Structure
+
+The input had two major branches:
+
+- **Proprioceptive observation**
+  - heading
+  - base linear velocity
+  - base angular velocity
+  - projected gravity
+  - joint position offsets
+  - joint velocities
+  - previous actions
+  - foot contact states
+
+- **Terrain observation**
+  - a local height map around the robot
+
+The proprioceptive branch represented the internal dynamic state of the robot, while the terrain branch represented the local geometric structure of the environment.
+
+### Terrain Representation
+
+The terrain input was encoded as a high-resolution local height map.
+Instead of directly feeding raw terrain geometry into the control head, the map was first compressed through a convolutional encoder.
+
+This branch was designed to preserve nearby terrain details while still reducing the spatial input into a compact latent representation suitable for policy learning.
+
+### Proprioceptive Branch
+
+The proprioceptive input was processed by a separate MLP-based encoder.
+This branch focused on the robot's internal motion state and contact-related information.
+
+Its role was different from the terrain branch:
+rather than understanding the surrounding geometry, it modeled the robot's current body configuration and motion condition.
+
+### Late Fusion Design
+
+After separate encoding, the terrain feature and proprioceptive feature were concatenated and passed into fusion layers.
+
+The actor and critic did not simply share a single final latent.
+Instead, after the encoder stage, they used separate fusion paths and separate heads.
+This made the architecture more suitable for learning policy and value representations without forcing both objectives to depend on the exact same fused features.
+
+### Action Space
+
+The policy was designed for continuous control of the dragoon robot.
+It predicted continuous actions for all controllable joints through a stochastic actor, and the value function was learned through a separate critic stream.
+
+---
+
+## Why This Stage Mattered
+
+This stage was important because it was the first time I clearly encountered the difference between:
+
+- a policy that can move
+- and a policy that can choose how to move depending on the environment
+
+The earlier map mostly tested locomotion.
+This map exposed the much harder problem of state-dependent behavior selection.
+
+Because of that, this experiment became the conceptual starting point for my later hierarchical RL direction, even though the final explanation turned out to be different from what I first believed.
+
+---
+
+## Later Correction
+
+At the time, I treated this failure as evidence that the search space was too large and that the policy needed a hierarchical structure.
+
+Later, after checking the system more carefully, I found that this interpretation was not actually the main reason for the failure.
+
+The real issue was an observation pipeline problem: the terrain input itself had been connected incorrectly.
+Once that input issue was fixed, the problem was resolved much more directly than expected.
+
+So in retrospect, this stage is best understood not as a genuine failure of exploration capacity, but as a case where an observation bug was mistaken for a learning-structure problem.

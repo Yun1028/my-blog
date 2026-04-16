@@ -1,0 +1,224 @@
+---
+title: "How the Dragoon Project Started"
+pubDate: 2026-03-10
+description: "The origin of the Dragoon project, from the initial idea to the first usable asset in Isaac Sim."
+
+---
+
+<div style={{
+  border: "1px solid #27304d",
+  background: "#121831",
+  borderRadius: "18px",
+  padding: "24px",
+  marginTop: "12px"
+}}>
+  <p style={{ margin: 0, fontSize: "1.05rem", lineHeight: "1.8" }}>
+    Although I had studied many AI concepts in theory, I had never built a full project by myself in practice.
+    For my first reinforcement learning project, I wanted to avoid using an existing USD asset and instead build
+    the robot from scratch, from idea design to simulation and training.
+  </p>
+</div>
+
+## Why I Started This Project
+
+I had long wanted to train a four-legged robot.
+I often watch StarCraft, and the Dragoon unit especially stood out to me because its movement style does not really exist in nature.
+It has a very unusual four-legged structure, and I wanted to see whether I could actually build something inspired by it
+and make it walk in simulation.
+
+This project became my first full reinforcement learning practice project:
+from concept design, to 3D asset creation, to physics setup, and finally to Isaac Sim.
+
+---
+
+## 1. From the Protoss Reference to the First Prototype
+
+<div style={{
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: "18px",
+  marginTop: "18px",
+  marginBottom: "18px"
+}}>
+  <img
+    src="/public/images/dragoon/2026-03-05-project-origin/photo1-protoss-and-first-prototype.png"
+    alt="Protoss reference and first prototype"
+    style={{
+      width: "100%",
+      borderRadius: "14px",
+      border: "1px solid #27304d",
+      background: "#0f1530"
+    }}
+  />
+</div>
+
+<div style={{
+  borderLeft: "4px solid #7aa2ff",
+  paddingLeft: "16px",
+  marginTop: "10px",
+  marginBottom: "22px"
+}}>
+  <p style={{ margin: 0, lineHeight: "1.8" }}>
+    I first started from a Protoss-inspired visual reference and generated an early prototype.
+    However, the first version was discarded because the head was too large and the overall proportion did not match
+    the movement style I wanted.
+  </p>
+</div>
+
+The important point at this stage was not just visual appearance.
+Since the final goal was locomotion in simulation, the shape had to be something that could eventually support
+a physically meaningful articulation structure.
+
+---
+
+## 2. Converting the Generated Model into a Simulation-Ready Asset
+
+<div style={{
+  display: "grid",
+  gridTemplateColumns: "1fr",
+  gap: "18px",
+  marginTop: "18px",
+  marginBottom: "18px"
+}}>
+  <img
+    src="/public/images/dragoon/2026-03-05-project-origin/photo2-collision-mesh.png"
+    alt="Collision mesh in Blender"
+    style={{
+      width: "100%",
+      borderRadius: "14px",
+      border: "1px solid #27304d",
+      background: "#0f1530"
+    }}
+  />
+</div>
+
+I used GPT to refine the concept I wanted, then used a 3D generation service to create a model from that idea.
+After that, I imported the generated mesh into Blender.
+
+However, the generated 3D model could not be used directly for simulation.
+
+A purely visual mesh is not enough for Isaac Sim.
+To make the asset usable in physics-based reinforcement learning, I had to build the physical structure required by simulation,
+including collision meshes and articulation-related information.
+
+<div style={{
+  border: "1px solid #27304d",
+  background: "#0f1530",
+  borderRadius: "16px",
+  padding: "18px",
+  marginTop: "18px",
+  marginBottom: "22px"
+}}>
+  <strong>Why this step was necessary</strong>
+  <ul style={{ marginTop: "12px", lineHeight: "1.8" }}>
+    <li>Visual meshes are for appearance only.</li>
+    <li>Collision meshes are needed for physical interaction.</li>
+    <li>Simulation also requires mass, inertia, joints, and other physical properties.</li>
+  </ul>
+</div>
+
+---
+
+## 3. Setting Mass, Torque, and Physical Structure
+
+<div style={{
+  display: "grid",
+  gridTemplateColumns: "1fr",
+  gap: "18px",
+  marginTop: "18px",
+  marginBottom: "18px"
+}}>
+  <img
+    src="/public/images/dragoon/2026-03-05-project-origin/photo3-mass-and-torque.png"
+    alt="Mass and torque settings"
+    style={{
+      width: "100%",
+      borderRadius: "14px",
+      border: "1px solid #27304d",
+      background: "#0f1530"
+    }}
+  />
+</div>
+
+At this stage, I had to define the physical properties of the robot more explicitly.
+
+For each link, I needed to think about several different components:
+
+<div style={{
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gap: "14px",
+  marginTop: "16px",
+  marginBottom: "24px"
+}}>
+  <div style={{ border: "1px solid #27304d", borderRadius: "14px", padding: "16px", background: "#0f1530" }}>
+    <strong>Visual</strong>
+    <p style={{ marginTop: "10px" }}>
+      The mesh used for appearance and rendering.
+    </p>
+  </div>
+
+  <div style={{ border: "1px solid #27304d", borderRadius: "14px", padding: "16px", background: "#0f1530" }}>
+    <strong>Collision</strong>
+    <p style={{ marginTop: "10px" }}>
+      The geometry used for physical contact and collision handling.
+    </p>
+  </div>
+
+  <div style={{ border: "1px solid #27304d", borderRadius: "14px", padding: "16px", background: "#0f1530" }}>
+    <strong>Joints</strong>
+    <p style={{ marginTop: "10px" }}>
+      The articulation structure that connects links and enables motion.
+    </p>
+  </div>
+
+  <div style={{ border: "1px solid #27304d", borderRadius: "14px", padding: "16px", background: "#0f1530" }}>
+    <strong>Center of Mass</strong>
+    <p style={{ marginTop: "10px" }}>
+      The mass distribution that strongly affects stability and motion.
+    </p>
+  </div>
+</div>
+
+This was the stage where the robot started to move from being a visual concept
+to becoming an actual simulated body.
+
+---
+
+## 4. Importing the Robot into Isaac Sim
+
+<div style={{
+  display: "grid",
+  gridTemplateColumns: "1fr",
+  gap: "18px",
+  marginTop: "18px",
+  marginBottom: "18px"
+}}>
+  <img
+    src="/public/images/dragoon/2026-03-05-project-origin/photo4-isaac-sim-import.png"
+    alt="Imported robot in Isaac Sim"
+    style={{
+      width: "100%",
+      borderRadius: "14px",
+      border: "1px solid #27304d",
+      background: "#0f1530"
+    }}
+  />
+</div>
+
+After preparing the structure in Blender and exporting it into a usable format,
+I imported the robot into Isaac Sim.
+
+This was the first point where the project began to feel like a real reinforcement learning system rather than just a design experiment.
+The asset could now be placed in simulation, inspected as an articulated body,
+and prepared for later stages such as environment design, reward shaping, and locomotion training.
+
+---
+
+## Final Note
+
+This update represents the starting point of the Dragoon project.
+
+What mattered most here was not training performance yet, but building the entire pipeline myself:
+starting from an idea, turning it into a 3D asset, preparing the physics structure,
+and bringing it into Isaac Sim as the foundation for reinforcement learning experiments.

@@ -1,0 +1,313 @@
+---
+title: "Late-Stage PPO Collapse and Baseline Shift Experiment"
+pubDate: 2026-04-17
+description: "A hypothesis-driven experiment on whether a late-stage advantage baseline shift could reduce PPO gait collapse in locomotion learning."
+summary: "I hypothesized that repeated probability suppression in late-stage PPO might reduce the mass of already useful behavior regions. However, the first experiment did not support the idea strongly enough to solve the collapse problem."
+status: "paused"
+tags: ["RL", "PPO", "Locomotion", "Hypothesis", "Advantage"]
+
+overview: "This page records my first research-style attempt to interpret late-stage PPO collapse in locomotion learning. Rather than treating collapse only as generic instability, I considered the possibility that repeated probability suppression might gradually damage the mass of an already formed nominal gait."
+
+hypothesis: "My hypothesis was that late-stage PPO collapse might not be explained only by general instability. I suspected that, in practical late-stage learning, repeated suppression of slightly negative-advantage actions could gradually reduce the probability mass of behaviors that still belong to a useful nominal gait region. If that interpretation was correct, then shifting the late-stage actor-side advantage baseline might relax the decision boundary enough to preserve more of that useful behavior mass."
+
+method:
+  - "Interpret late-stage PPO collapse as a possible probability-mass preservation problem."
+  - "Assume that actor-side suppression around zero advantage may become too strict in the late stage of training."
+  - "Modify the actor-side advantage by introducing a late-stage baseline shift."
+  - "Compare the modified setting against the baseline PPO setup under the same locomotion setting."
+  - "Observe whether the change affects collapse behavior, training stability, reward trends, and learning speed."
+
+experimentDesign:
+  - "Baseline PPO was compared against a modified PPO setting with a shifted late-stage actor advantage."
+  - "The goal was not to change the task reward itself, but to relax the actor-side decision boundary in the later stage of training."
+  - "The intended effect was to preserve slightly negative but still structurally useful gait-related actions."
+  - "The main evaluation points were collapse behavior, stability, reward trends, and training speed."
+  - "The key question was whether the modification could fundamentally prevent or meaningfully reduce late-stage collapse."
+
+timeline:
+  - date: 2026-04-17
+    title: "First Experimental Result"
+    status: "paused"
+    summary: "The modified method changed some aspects of training behavior, but it did not fundamentally prevent learning collapse."
+    details:
+      - "There were slight differences in training stability."
+      - "Reward behavior also changed to some extent."
+      - "Training speed differed from the baseline."
+      - "However, the main objective of preventing collapse was not achieved."
+      - "The result was not strong enough to support the hypothesis as a practical solution."
+      - "This line of research was paused after the first experiment."
+
+---
+
+## Motivation
+
+In locomotion learning, PPO often appears to work relatively well in the early and middle stages of training.
+However, once the policy has already formed a reasonably good gait, the training can sometimes collapse sharply in the late stage.
+
+What made this phenomenon especially interesting to me was that it often did not look like a small fluctuation.
+In many cases, once the collapse began, the policy did not naturally return to the previous nominal gait,
+even if training was continued afterward.
+
+This felt strange to me from a theoretical perspective.
+
+If the update mechanism is working ideally, then increasing the probability of good actions and decreasing the probability of bad actions should not fundamentally damage the learned solution.
+Under that ideal picture, if a good behavior reappears in later rollouts, it should eventually receive positive reinforcement again and help the policy recover.
+
+But in practice, that is often not what happens.
+Once a late-stage collapse begins, the previously formed gait may fail to recover.
+
+That observation was the starting point of this research idea.
+
+## Research Motivation Behind the Hypothesis
+
+At the time, I began to suspect that the issue might not be only whether the update direction is mathematically correct at the level of individual samples.
+
+I thought that, in practical training, repeatedly reducing the probability of an action might gradually reduce the internal probability mass of behavior patterns that are still useful for producing the correct solution.
+
+In other words, I considered the possibility that a negative update could be locally reasonable but still structurally harmful.
+
+This became the basis of my hypothesis.
+
+## Mass-Loss Interpretation of Probability Suppression
+
+In deep learning and reinforcement learning, decreasing the probability of a behavior is not inherently wrong.
+If the training signal is correct and the update behaves exactly as intended, suppressing low-quality actions should be theoretically harmless.
+In that ideal case, probability mass is simply moved away from worse actions and redistributed toward better ones.
+
+However, I suspected that the practical situation might not always be that clean.
+
+In real late-stage policy learning, the process of decreasing probability may not only suppress clearly bad actions.
+It may also reduce the internal probability mass of actions that are still structurally important for maintaining the correct behavior.
+
+At the most abstract level, policy-gradient learning can be written as
+
+$$
+\nabla_\theta J(\theta)
+=
+\mathbb{E}_t
+\left[
+\nabla_\theta \log \pi_\theta(a_t \mid s_t)\, A_t
+\right].
+$$
+
+Under this form, when $A_t < 0$, the update moves in a direction that decreases the probability of the sampled action.
+Theoretically, this is reasonable:
+actions with negative advantage should become less likely.
+
+But I suspected that the problem in late-stage locomotion might be more subtle.
+
+Suppose that the policy has already formed a nominal gait region, which I denote by $\mathcal{G}$.
+Then many actions inside that region are no longer clearly optimal or clearly bad.
+Some of them may still be necessary parts of the overall structure, even if they are not always assigned positive advantage.
+
+We can think of the total probability mass of such a useful behavior region as
+
+$$
+M_{\mathcal{G}}(\theta)
+=
+\int_{a \in \mathcal{G}}
+\pi_\theta(a \mid s)\, da.
+$$
+
+From this perspective, my concern was the following:
+
+if repeated negative updates are applied to actions that still belong to $\mathcal{G}$,
+then the total mass
+
+$$
+M_{\mathcal{G}}(\theta)
+$$
+
+may gradually shrink over time.
+
+This led me to think that late-stage collapse might be interpretable as
+
+$$
+\text{late-stage collapse}
+\;\approx\;
+\text{repeated suppression of useful local actions}
+\;\Rightarrow\;
+\text{mass loss in the nominal region}.
+$$
+
+This was not a claim that the interpretation was already correct.
+It was a hypothesis that I found plausible enough to test.
+
+## Why I Thought the Idea Was Worth Testing
+
+I thought this interpretation was worth testing because it offered a more structural explanation than simply calling the phenomenon “late-stage instability.”
+
+If the problem was partly caused by repeatedly suppressing slightly negative but still useful actions,
+then the update rule might be too strict around the zero-advantage boundary during the late stage of training.
+
+That suggested a simple possible intervention:
+shift the late-stage actor-side advantage baseline.
+
+The goal was not to modify the environment reward.
+The goal was not to impose a handcrafted gait score.
+The goal was only to relax the suppression boundary used by the actor in the late stage.
+
+If the interpretation was correct, then this kind of shift might preserve more of the probability mass of the already formed nominal gait.
+
+## Baseline-Shift Idea
+
+The late-stage baseline-shift idea was based on the thought that the actor-side decision boundary might be too strict in the later stage of learning.
+
+In the early stage, the difference between clearly good and clearly bad actions is often large enough that the sign of the advantage is informative.
+But in the late stage, that difference can become much smaller,
+while critic error, rollout noise, and contact-sensitive dynamics still remain.
+
+This means that
+
+$$
+A_t \approx \text{signal} + \text{noise}
+$$
+
+may no longer provide a clean separation between clearly bad actions and slightly suboptimal but still useful actions.
+
+So I thought that shifting the actor-side baseline in the late stage could help preserve marginally negative but still useful gait-related actions.
+
+The intended logic was:
+
+- clearly bad actions should still remain suppressible
+- slightly negative but useful nominal-gait actions should be less aggressively removed
+- the already formed gait structure should have a better chance of being preserved
+
+Again, this was only a hypothesis.
+The experiment was meant to test whether that interpretation had practical value.
+
+## Experiment Goal
+
+The central question of the experiment was simple:
+
+**Could a late-stage advantage baseline shift reduce or prevent PPO gait collapse?**
+
+I was not only interested in peak return.
+I also cared about:
+
+- whether collapse was delayed
+- whether collapse magnitude was reduced
+- whether training looked more stable
+- whether reward trends changed
+- whether learning speed changed
+
+Even if the method did not improve peak performance,
+I still considered it meaningful if it could preserve the already learned gait for longer.
+
+## Experimental Outcome
+
+The first experiment did produce some visible differences compared with the baseline PPO setting.
+
+I observed:
+
+- slight differences in learning stability
+- some changes in reward behavior
+- differences in training speed
+
+So the intervention was not completely neutral.
+It did affect the training process in some way.
+
+However, the most important result was that it did **not** fundamentally solve the core problem.
+
+The modified setting did not prevent late-stage collapse in the way I had hoped.
+
+That means the main experimental objective was not achieved.
+
+## Interpretation of the Result
+
+Because the result did not support the practical goal strongly enough, I do not treat this as a successful method.
+
+Instead, I interpret it more cautiously.
+
+My current reading is:
+
+- the hypothesis may still contain a useful intuition
+- but the intervention I tested was not sufficient
+- or the underlying problem is more complex than this hypothesis alone
+
+In other words, I thought the late-stage collapse might be explained in part by mass loss caused by repeated negative updates,
+but the first experimental result was not strong enough to confirm that the proposed baseline shift was an effective solution.
+
+So although I still think the interpretation was worth investigating,
+the experiment itself did not validate it strongly enough.
+
+## Why the Research Was Paused
+
+I marked this research as **paused** because the first implementation did not produce the main effect I was aiming for.
+
+At this point, continuing in exactly the same direction did not seem efficient.
+The result suggested that either:
+
+- the hypothesis was incomplete,
+- the implementation was too weak,
+- or the main collapse mechanism lay elsewhere.
+
+So the research was not ended because the question became meaningless.
+It was paused because the first tested answer was not convincing enough.
+
+## What I Learned
+
+Even though the result was a failure with respect to its main objective,
+the experiment was still useful to me.
+
+### 1. A mathematically valid local update may still be structurally harmful
+
+This was the main intuition I wanted to explore.
+Even though the experiment did not solve the problem, it helped me formulate the question more precisely.
+
+### 2. Theoretical plausibility does not guarantee practical success
+
+The idea sounded reasonable to me at the conceptual level,
+but practical locomotion learning is much messier than a clean theoretical picture.
+
+### 3. Reward trends and collapse prevention are not the same thing
+
+The method changed some visible properties of learning,
+but those changes did not automatically imply that the actual collapse mechanism had been solved.
+
+### 4. A failed experiment can still improve the research direction
+
+The most important outcome was not performance gain.
+It was that I was forced to turn a vague intuition into an explicit hypothesis and test it directly.
+
+That failure clarified the limits of the current idea.
+
+## Current Conclusion
+
+At the current stage, my conclusion is modest.
+
+I considered the possibility that late-stage PPO collapse might be partly related to a probability-mass loss process inside an already useful nominal gait region.
+I then tested whether a late-stage actor-side baseline shift could reduce that problem.
+
+The first experiment showed some differences in stability, reward behavior, and speed,
+but it did not fundamentally prevent collapse.
+
+So at this stage, I cannot claim that the proposed idea works as a practical solution.
+The research remains meaningful as a hypothesis-driven attempt,
+but the first result was not strong enough to support the method.
+
+## Possible Future Directions
+
+Although this line is currently paused, several future directions remain open:
+
+- analyze the negative-advantage distribution more directly inside the nominal gait region
+- test different shift schedules or shift magnitudes
+- compare the effect against improvements in critic quality
+- compare PPO and SAC under the same locomotion setting
+- investigate whether collapse is more strongly tied to value noise than to the actor suppression boundary itself
+
+These directions remain possible,
+but they would require a redesigned experiment rather than a simple continuation of the current one.
+
+## Final Note
+
+This page records a failed first research experiment.
+
+Still, I believe it is worth keeping.
+
+The value of this experiment was not that it solved the problem,
+but that it allowed me to formalize an intuition,
+test it directly,
+and observe that the first implementation was not sufficient.
+
+That failure itself became a meaningful research result.

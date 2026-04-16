@@ -1,0 +1,54 @@
+---
+import MainLayout from '../../components/MainLayout.astro';
+import { getCollection } from 'astro:content';
+
+const researchItems = (await getCollection('research')).sort(
+  (a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime()
+);
+---
+
+<MainLayout title="Research | SEO JEYUN">
+  <h1>Research</h1>
+  <p class="muted">
+    Hypotheses, methods, and timeline-based research notes.
+  </p>
+
+  <div style="display:grid; gap:20px; margin-top:24px;">
+    {researchItems.map((item) => (
+      <article
+        style="
+          border:1px solid #27304d;
+          background:#121831;
+          border-radius:18px;
+          padding:22px;
+        "
+      >
+        <div
+          style="
+            display:flex;
+            justify-content:space-between;
+            align-items:flex-start;
+            gap:16px;
+            flex-wrap:wrap;
+          "
+        >
+          <div>
+            <h2 style="margin:0 0 10px 0; font-size:1.35rem;">
+              <a href={`/research/${item.id}/`}>{item.data.title}</a>
+            </h2>
+            <p class="muted" style="margin:0;">
+              {item.data.description}
+            </p>
+          </div>
+
+          <div style="text-align:right;">
+            <div class="muted">{item.data.pubDate.toISOString().slice(0, 10)}</div>
+            <div style="margin-top:8px; color:#7aa2ff; font-weight:600;">
+              Status: {item.data.status}
+            </div>
+          </div>
+        </div>
+      </article>
+    ))}
+  </div>
+</MainLayout>

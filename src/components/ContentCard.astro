@@ -1,0 +1,24 @@
+---
+interface Props {
+  href: string;
+  title: string;
+  description: string;
+  date: string;
+  extra?: string;
+}
+
+const { href, title, description, date, extra } = Astro.props;
+---
+
+<article style="border:1px solid #27304d; background:#121831; padding:20px; border-radius:16px; margin-bottom:16px;">
+  <div style="display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+    <h2 style="margin:0; font-size:1.2rem;">
+      <a href={href}>{title}</a>
+    </h2>
+    <span style="color:#a6b0c3;">{date}</span>
+  </div>
+
+  <p style="margin:10px 0 0; color:#a6b0c3;">{description}</p>
+
+  {extra && <p style="margin:12px 0 0; color:#7aa2ff;">{extra}</p>}
+</article>

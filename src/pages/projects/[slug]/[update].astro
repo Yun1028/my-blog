@@ -1,0 +1,54 @@
+---
+import MainLayout from '../../../components/MainLayout.astro';
+import { getCollection, render } from 'astro:content';
+
+export async function getStaticPaths() {
+  const allUpdates = await getCollection('projectUpdates');
+
+  return allUpdates.map((update) => {
+    const [projectSlug, rest] = update.id.split('/updates/');
+    const updateSlug = rest.replace(/\.mdx?$/, '');
+
+    return {
+      params: {
+        slug: projectSlug,
+        update: updateSlug,
+      },
+      props: { updateEntry: update, projectSlug },
+    };
+  });
+}
+
+const { updateEntry, projectSlug } = Astro.props;
+const { Content } = await render(updateEntry);
+---
+
+<MainLayout title={`${updateEntry.data.title} | ${projectSlug}`}>
+  <p>
+    <a href={`/projects/${projectSlug}/`}>← Back to Project</a>
+  </p>
+
+  <p class="muted">{updateEntry.data.pubDate.toISOString().slice(0, 10)}</p>
+  <h1>{updateEntry.data.title}</h1>
+  <p class="muted">{updateEntry.data.description}</p>
+
+  {updateEntry.data.youtube && (
+    <p style="margin-top:16px;">
+      <a href={updateEntry.data.youtube} target="_blank" rel="noreferrer">
+        Watch Video
+      </a>
+    </p>
+  )}
+
+  <div
+    style="
+      border:1px solid #27304d;
+      background:#121831;
+      padding:24px;
+      border-radius:18px;
+      margin-top:24px;
+    "
+  >
+    <Content />
+  </div>
+</MainLayout>

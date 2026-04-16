@@ -1,0 +1,177 @@
+---
+import MainLayout from '../../components/MainLayout.astro';
+import { getCollection, render } from 'astro:content';
+
+export async function getStaticPaths() {
+  const researchItems = await getCollection('research');
+  return researchItems.map((item) => ({
+    params: { slug: item.id },
+    props: { item },
+  }));
+}
+
+const { item } = Astro.props;
+const { Content } = await render(item);
+
+const timeline = [...item.data.timeline].sort(
+  (a, b) => b.date.getTime() - a.date.getTime()
+);
+---
+
+<MainLayout title={`${item.data.title} | Research`}>
+  <p class="muted">{item.data.pubDate.toISOString().slice(0, 10)}</p>
+  <h1>{item.data.title}</h1>
+  <p class="muted">{item.data.description}</p>
+
+  <div
+    style="
+      display:inline-block;
+      margin-top:14px;
+      margin-bottom:22px;
+      padding:10px 14px;
+      border:1px solid #27304d;
+      border-radius:14px;
+      background:#121831;
+      color:#7aa2ff;
+      font-weight:600;
+    "
+  >
+    Status: {item.data.status}
+  </div>
+
+  <div style="display:grid; gap:20px; margin-top:12px;">
+    <section
+      style="
+        border:1px solid #27304d;
+        background:#121831;
+        border-radius:18px;
+        padding:28px;
+      "
+    >
+      <h2 style="margin-top:0;">Overview</h2>
+      <p>{item.data.overview}</p>
+    </section>
+
+    <section
+      style="
+        border:1px solid #27304d;
+        background:#121831;
+        border-radius:18px;
+        padding:28px;
+      "
+    >
+      <h2 style="margin-top:0;">Hypothesis</h2>
+      <p>{item.data.hypothesis}</p>
+    </section>
+
+    <section
+      style="
+        border:1px solid #27304d;
+        background:#121831;
+        border-radius:18px;
+        padding:28px;
+      "
+    >
+      <h2 style="margin-top:0;">Method</h2>
+      <ul>
+        {item.data.method.map((m) => <li>{m}</li>)}
+      </ul>
+    </section>
+
+    <section
+      style="
+        border:1px solid #27304d;
+        background:#121831;
+        border-radius:18px;
+        padding:28px;
+      "
+    >
+      <h2 style="margin-top:0;">Experiment Design</h2>
+      <ul>
+        {item.data.experimentDesign.map((m) => <li>{m}</li>)}
+      </ul>
+    </section>
+  </div>
+
+  <section style="margin-top:36px;">
+    <h2>Timeline</h2>
+    <div
+      style="
+        position:relative;
+        margin-top:20px;
+        padding-left:28px;
+        border-left:2px solid #27304d;
+      "
+    >
+      {timeline.map((entry) => (
+        <article
+          style="
+            position:relative;
+            margin-bottom:24px;
+            border:1px solid #27304d;
+            background:#121831;
+            border-radius:18px;
+            padding:22px;
+          "
+        >
+          <div
+            style="
+              position:absolute;
+              left:-37px;
+              top:24px;
+              width:14px;
+              height:14px;
+              border-radius:999px;
+              background:#7aa2ff;
+              border:2px solid #0b1020;
+            "
+          />
+
+          <div
+            style="
+              display:flex;
+              justify-content:space-between;
+              align-items:flex-start;
+              gap:16px;
+              flex-wrap:wrap;
+            "
+          >
+            <div>
+              <h3 style="margin:0 0 10px 0;">{entry.title}</h3>
+              <p class="muted" style="margin:0;">{entry.summary}</p>
+            </div>
+
+            <div style="text-align:right;">
+              <div class="muted">{entry.date.toISOString().slice(0, 10)}</div>
+              {entry.status && (
+                <div style="margin-top:8px; color:#7aa2ff; font-weight:600;">
+                  {entry.status}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {entry.details.length > 0 && (
+            <ul style="margin-top:16px;">
+              {entry.details.map((detail) => <li>{detail}</li>)}
+            </ul>
+          )}
+        </article>
+      ))}
+    </div>
+  </section>
+
+  <section style="margin-top:36px;">
+    <h2>Detailed Notes</h2>
+    <div
+      style="
+        border:1px solid #27304d;
+        background:#121831;
+        border-radius:18px;
+        padding:28px;
+      "
+    >
+      <Content />
+    </div>
+  </section>
+</MainLayout>
