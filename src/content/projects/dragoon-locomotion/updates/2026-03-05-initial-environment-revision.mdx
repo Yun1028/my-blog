@@ -4,6 +4,8 @@ pubDate: 2026-03-10
 description: "The origin of the Dragoon project, from the initial idea to the first usable asset in Isaac Sim."
 ---
 
+export const BASE = import.meta.env.BASE_URL;
+
 <div style={{
   border: "1px solid #27304d",
   background: "#121831",
@@ -40,7 +42,7 @@ from concept design, to 3D asset creation, to physics setup, and finally to Isaa
   marginBottom: "18px"
 }}>
   <img
-    src="/my-blog/public/images/dragoon/2026-03-05-project-origin/photo1-protoss-and-first-prototype.png"
+    src={`${BASE}images/dragoon/2026-03-05-project-origin/photo1-protoss-and-first-prototype.png`}
     alt="Protoss reference and first prototype"
     style={{
       width: "100%",
