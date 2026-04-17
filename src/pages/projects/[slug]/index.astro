@@ -4,6 +4,11 @@ import { getCollection, render } from 'astro:content';
 
 const BASE = import.meta.env.BASE_URL;
 
+function withBase(path?: string) {
+  if (!path) return undefined;
+  return `${BASE}${path.replace(/^\/+/, '').replace(/^public\//, '')}`;
+}
+
 export async function getStaticPaths() {
   const projects = await getCollection('projects');
 
@@ -24,10 +29,7 @@ const updates = allUpdates
   .sort((a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime());
 
 const { Content } = await render(project);
-
-const coverSrc = project.data.coverImage
-  ? `${BASE}${project.data.coverImage.replace(/^\/+/, '')}`
-  : undefined;
+const coverSrc = withBase(project.data.coverImage);
 ---
 
 <MainLayout title={`${project.data.title} | Projects`}>
