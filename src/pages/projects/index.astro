@@ -16,6 +16,10 @@ const projects = (await getCollection('projects')).sort(
   <div style="display:grid; gap:24px; margin-top:24px;">
     {projects.map((project) => {
       const slug = project.id.replace(/\/index$/, '');
+      const coverSrc = project.data.coverImage?.startsWith('/my-blog/')
+        ? project.data.coverImage
+        : `${BASE}${project.data.coverImage?.replace(/^\/+/, '')}`;
+
       return (
         <article
           style="
@@ -35,7 +39,7 @@ const projects = (await getCollection('projects')).sort(
             <div style="background:#0f1530; min-height:260px;">
               {project.data.coverImage && (
                 <img
-                  src={project.data.coverImage}
+                  src={coverSrc}
                   alt={`${project.data.title} cover image`}
                   style="
                     width:100%;
