@@ -12,6 +12,7 @@ export default defineConfig({
     remarkPlugins: [remarkMath],
     rehypePlugins: [rehypeKatex],
   },
-	site: 'https://example.com',
+	site: 'https://yun1028.github.io',
+	base: '/my-blog/',
 	integrations: [mdx(), sitemap()],
 });
