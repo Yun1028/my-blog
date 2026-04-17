@@ -24,6 +24,10 @@ const updates = allUpdates
   .sort((a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime());
 
 const { Content } = await render(project);
+
+const coverSrc = project.data.coverImage
+  ? `${BASE}${project.data.coverImage.replace(/^\/+/, '')}`
+  : undefined;
 ---
 
 <MainLayout title={`${project.data.title} | Projects`}>
@@ -34,9 +38,9 @@ const { Content } = await render(project);
   <h1>{project.data.title}</h1>
   <p class="muted">{project.data.description}</p>
 
-  {project.data.coverImage && (
+  {coverSrc && (
     <img
-      src={project.data.coverImage}
+      src={coverSrc}
       alt={`${project.data.title} cover image`}
       style="width:100%; max-height:600px; object-fit:contain; border-radius:18px; margin:24px 0;"
     />
