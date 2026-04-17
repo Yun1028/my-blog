@@ -4,6 +4,11 @@ import { getCollection } from 'astro:content';
 
 const BASE = import.meta.env.BASE_URL;
 
+function withBase(path?: string) {
+  if (!path) return undefined;
+  return `${BASE}${path.replace(/^\/+/, '').replace(/^public\//, '')}`;
+}
+
 const projects = (await getCollection('projects')).sort(
   (a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime()
 );
@@ -16,9 +21,7 @@ const projects = (await getCollection('projects')).sort(
   <div style="display:grid; gap:24px; margin-top:24px;">
     {projects.map((project) => {
       const slug = project.id.replace(/\/index$/, '');
-      const coverSrc = project.data.coverImage?.startsWith('/my-blog/')
-        ? project.data.coverImage
-        : `${BASE}${project.data.coverImage?.replace(/^\/+/, '')}`;
+      const coverSrc = withBase(project.data.coverImage);
 
       return (
         <article
@@ -37,7 +40,7 @@ const projects = (await getCollection('projects')).sort(
             "
           >
             <div style="background:#0f1530; min-height:260px;">
-              {project.data.coverImage && (
+              {coverSrc && (
                 <img
                   src={coverSrc}
                   alt={`${project.data.title} cover image`}
