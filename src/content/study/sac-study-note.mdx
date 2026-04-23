@@ -6,432 +6,538 @@ description: "A study note on SAC, covering its objective, entropy term, soft Q-
 
 export const BASE = import.meta.env.BASE_URL;
 
-## Overview
+## SAC Summary  
+### Basic theory, equations, and the practical questions that naturally arise
+
+## 1. What kind of algorithm is SAC?
 
 Soft Actor-Critic (SAC) is an off-policy actor-critic reinforcement learning algorithm mainly used in continuous action spaces.
 
-Its central idea is simple but important:
+Its most important feature is that it does not maximize reward alone.  
+Instead, it maximizes
 
-SAC does not maximize reward alone.  
-Instead, it maximizes **reward + entropy**.
+**reward + entropy**.
 
-This means SAC tries to learn a policy that not only finds good actions, but also avoids becoming too deterministic too early.
-Because of this, SAC is best understood as a method from **maximum entropy reinforcement learning** rather than as a standard reward-only actor-critic algorithm.
+In other words, SAC follows the philosophy:
 
-## 1. Standard RL Objective vs. SAC Objective
+> Find good actions, but do not let the policy become deterministic too quickly.
 
-In standard reinforcement learning, the objective is usually written as
+Because of this, SAC is better understood as a method from the family of **maximum entropy reinforcement learning** rather than as a standard reward-only RL algorithm.
 
-$$
-J(\pi)=\mathbb{E}\left[\sum_{t=0}^{\infty}\gamma^t r(s_t,a_t)\right].
-$$
+## 2. Difference between standard RL and SAC
 
-This means we search for a policy that maximizes the discounted sum of rewards.
-
-SAC changes that objective into
+Standard reinforcement learning usually solves the following objective:
 
 $$
-J_{\text{soft}}(\pi)
-=
-\mathbb{E}\left[
-\sum_{t=0}^{\infty}
-\gamma^t
-\left(
-r(s_t,a_t)+\alpha \mathcal{H}(\pi(\cdot\mid s_t))
-\right)
-\right].
+J(\pi)=E\left[\sum_{t=0}^{\infty}\gamma^t r(s_t,a_t)\right]
 $$
 
-Here,
+That is, it searches for a policy that maximizes the discounted sum of rewards.
 
-- $\gamma$ is the discount factor
-- $\alpha$ controls the importance of entropy
-- $\mathcal{H}(\pi(\cdot\mid s))$ is the policy entropy
+SAC instead solves
 
-So SAC prefers a policy that is both:
+$$
+J_{\text{soft}}(\pi)=E\left[\sum_{t=0}^{\infty}\gamma^t \left(r(s_t,a_t)+\alpha H(\pi(\cdot\mid s_t))\right)\right]
+$$
+
+where
+
+- $\gamma$: discount factor
+- $\alpha$: entropy coefficient
+- $H(\pi(\cdot\mid s))$: policy entropy
+
+So SAC learns a policy that is
 
 - high-reward
-- not too quickly concentrated on one action only
+- but not too quickly concentrated on only one action
 
-That is the main philosophical difference between ordinary RL and SAC.
+## 3. What is entropy?
 
-## 2. What Entropy Means
+Policy entropy represents how spread out a policy is, or how stochastic it is.
 
-Policy entropy measures how spread out or stochastic a policy is.
-
-In continuous action spaces, entropy can be written as
+In continuous action spaces, entropy is theoretically defined as
 
 $$
-\mathcal{H}(\pi(\cdot\mid s))
-=
--\int \pi(a\mid s)\log \pi(a\mid s)\,da
+H(\pi(\cdot\mid s))=-\int \pi(a\mid s)\log \pi(a\mid s)\,da
 $$
 
 or equivalently as
 
 $$
-\mathcal{H}(\pi(\cdot\mid s))
-=
--\mathbb{E}_{a\sim\pi(\cdot\mid s)}[\log \pi(a\mid s)].
+H(\pi(\cdot\mid s))=-E_{a\sim \pi(\cdot\mid s)}[\log \pi(a\mid s)]
 $$
 
-This leads to the intuitive interpretation:
+The meaning is intuitive:
 
-- large entropy $\rightarrow$ broad, stochastic policy
-- small entropy $\rightarrow$ sharp, nearly deterministic policy
+- large entropy → the policy is broadly spread out
+- small entropy → the policy is sharp and nearly deterministic
 
-At this point, a natural question appears:
+## 4. But how is this integral computed in continuous space?
 
-**In a continuous action space, how can we possibly compute this integral over all actions?**
+This was one of the first major questions:
 
-The practical answer is that SAC does **not** compute the full integral directly.
-Instead, the actor outputs distribution parameters, usually a mean and a standard deviation,
-samples actions from that distribution,
-and uses sampled log-probabilities to approximate the expectation term.
+**“In a continuous action space, is it even realistic to compute probabilities over all actions and integrate them?”**
 
-So the full entropy is not integrated explicitly.
-It is estimated through sampled actions.
+The answer is no: SAC does not compute the full integral directly.
 
-## 3. Main Components of SAC
+Instead, the actor outputs the parameters of a distribution, usually
+
+- mean $\mu(s)$
+- standard deviation $\sigma(s)$
+
+Then actions are sampled from that distribution.
+
+Entropy is approximated through
+
+$$
+H(\pi(\cdot\mid s))=-E_{a\sim \pi}[\log \pi(a\mid s)]
+$$
+
+using sampled actions and their log-probabilities.
+
+So the key idea is:
+
+- SAC does not directly integrate the full policy distribution
+- it approximates the expectation using sampled actions
+
+## 5. Main components of SAC
 
 A standard SAC implementation usually contains:
 
-- one actor
-- two critics
-- two target critics
-- one replay buffer
+- actor  
+  $\pi_\theta(a\mid s)$  
+  a network defining the policy distribution
 
-The actor defines the policy distribution.
-The critics estimate soft Q-values.
-The target critics provide slowly moving targets for stable critic learning.
-The replay buffer stores past transitions so that the method can remain off-policy.
+- two critics  
+  $Q_{\phi_1}(s,a), Q_{\phi_2}(s,a)$
 
-A useful summary is:
+- two target critics  
+  $Q_{\bar{\phi}_1}(s,a), Q_{\bar{\phi}_2}(s,a)$
 
-- actor: 1
-- online critics: 2
-- target critics: 2
+- replay buffer  
+  stores past transitions
 
-Also, the expression
+So from a network perspective, SAC typically has
+
+- 2 online critics
+- 2 target critics
+- 1 actor
+
+An important detail is that
 
 $$
 \min(Q_1,Q_2)
 $$
 
-does **not** mean there is a third critic.
-It simply means taking the smaller output from the two critics.
+does **not** mean a third critic.  
+It simply means taking the smaller value between the two critics.
 
-## 4. Why SAC Uses Two Critics
+## 6. Why are there two critics?
 
-Q-learning methods with function approximation often suffer from **overestimation**.
-A critic may predict values that are too high,
-and then the actor may trust those inflated values and move toward bad actions.
+Q-learning methods often suffer from **Q overestimation** when function approximators are used.
 
-SAC addresses this by maintaining two critics and using
+That means the critic may predict a Q-value that is too high compared to reality.
 
-$$
-\min(Q_{\phi_1}(s,a),Q_{\phi_2}(s,a)).
-$$
+If that happens, the actor may trust that incorrect high Q-value and learn bad actions.
 
-This makes the update more conservative and reduces the chance that the actor chases an unrealistically optimistic Q estimate.
-
-## 5. Why Target Critics Are Needed
-
-If critic targets are computed directly from the online critics, the target itself moves too quickly and learning becomes unstable.
-
-So SAC keeps target critics as slowly moving copies:
+So SAC uses two critics and takes
 
 $$
-\bar{\phi}_i \leftarrow \tau \phi_i + (1-\tau)\bar{\phi}_i,
+\min(Q_{\phi_1}(s,a),Q_{\phi_2}(s,a))
 $$
 
-where $\tau$ is usually very small.
+to reduce overestimation by using the more conservative estimate.
 
-The target critic is therefore a slowly updated, more stable reference.
-This is one of the mechanisms that makes critic learning less unstable.
+## 7. Why are target critics needed?
 
-## 6. SAC Learns a Soft Q, Not an Ordinary Reward-Only Q
+If we build critic targets using the current critics directly, then the target itself changes too quickly, which can make learning unstable.
 
-This is one of the most important conceptual points.
-
-SAC does not learn the ordinary Q-function
+So SAC keeps target critics separately and updates them slowly:
 
 $$
-Q^\pi(s,a)=\mathbb{E}\left[\sum \gamma^t r_t\right].
+\bar{\phi}_i \leftarrow \tau \phi_i + (1-\tau)\bar{\phi}_i
 $$
 
-Instead, it learns a **soft Q-function**:
+where $\tau$ is usually very small, for example
 
 $$
-Q^\pi_{\text{soft}}(s,a)
-=
-\mathbb{E}\left[
-\sum \gamma^t
-\left(
-r_t+\alpha \mathcal{H}(\pi(\cdot\mid s_t))
-\right)
-\right].
+\tau=0.005
 $$
 
-So the critic is not valuing reward only.
-It is valuing reward **plus the future tendency of the policy to remain stochastic**.
+So a target critic is a slowly moving stable copy.
 
-That is why SAC can feel conceptually different from ordinary critic-based methods.
+## 8. The critic in SAC does not learn an ordinary Q
 
-## 7. Why the Critic Target Contains an Entropy Term
+This is a very important point, and it was also one of the strongest sources of conceptual discomfort.
 
-Suppose we have a transition
+The critic in SAC does **not** learn a reward-only Q.
 
-$$
-(s,a,r,s',d).
-$$
-
-At the next state, SAC samples a next action
+That is, it does not learn
 
 $$
-a' \sim \pi_\theta(\cdot\mid s').
+Q^\pi(s,a)=E\left[\sum \gamma^t r_t\right]
 $$
 
-Then the critic target is written as
+but instead learns a soft Q corresponding to
 
 $$
-y
-=
-r+\gamma(1-d)
-\left(
-\min(Q_{\bar{\phi}_1}(s',a'),Q_{\bar{\phi}_2}(s',a'))
+Q^\pi_{\text{soft}}(s,a)=E\left[\sum \gamma^t \left(r_t+\alpha H(\pi(\cdot\mid s_t))\right)\right]
+$$
+
+So the critic learns not only
+
+- whether reward is large
+- but also whether the future policy remains stochastic
+
+## 9. Why does the critic target contain an entropy term?
+
+The critic target is defined as follows.
+
+For a transition
+
+$$
+(s,a,r,s',d)
+$$
+
+we sample the next action from the actor at the next state:
+
+$$
+a' \sim \pi_\theta(\cdot\mid s')
+$$
+
+Then the critic target becomes
+
+$$
+y=r+\gamma(1-d)\left(\min(Q_{\bar{\phi}_1}(s',a'),Q_{\bar{\phi}_2}(s',a'))-\alpha \log \pi_\theta(a'\mid s')\right)
+$$
+
+Here,
+
+$$
 -\alpha \log \pi_\theta(a'\mid s')
-\right).
 $$
 
-A very common question is:
+is the entropy contribution.
 
-**Why is the term $-\alpha \log \pi(a'\mid s')$ inside the target?**
+This appears because SAC does not solve a reward-only objective, but a reward + entropy objective.
 
-The answer is that SAC is not solving a reward-only Bellman equation.
-It is solving a **soft Bellman equation**.
-So the critic target must also contain the entropy contribution.
+So the critic target itself must already be a soft target.
 
-Another natural question is:
+## 10. First major question here
 
-**If the actor defines a distribution, why does the target use only one sampled action $a'$?**
+**“If the actor outputs a distribution rather than a single action, why does the critic target use only one sampled action $a'$?”**
 
-The answer is that the true expectation would require integration over the full action distribution,
-but this is expensive in practice.
-So SAC samples from the actor and uses Monte Carlo approximation for that expected value.
+The answer is:
 
-## 8. Does This Mean Rare Actions Are Rewarded?
+The actor defines a distribution, and the critic target uses one sampled action from that distribution to approximate the expectation.
 
-At first glance, the term
+In theory, we would want to compute
+
+$$
+E_{a'\sim \pi(\cdot\mid s')}[Q(s',a')-\alpha \log \pi(a'\mid s')]
+$$
+
+But the exact integral is hard.
+So in practice SAC does the following:
+
+- the actor defines the distribution
+- one action $a'$ is sampled
+- that single sample is used to approximate the expectation
+
+So SAC uses a Monte Carlo approximation of the soft Bellman target.
+
+## 11. Second question
+
+**“Then doesn’t a low-probability action become favorable because of $-\log \pi$?”**
+
+At first glance, it can look that way.
+
+Because if an action has low probability, then $\log \pi(a'\mid s')$ becomes smaller, and therefore
 
 $$
 -\alpha \log \pi(a'\mid s')
 $$
 
-can look strange.
+can become larger.
 
-If an action has low probability, then $\log \pi(a'\mid s')$ is smaller,
-so the negative sign can make the entropy contribution larger.
-This can create the misleading intuition that SAC is “rewarding rare actions.”
+But it would be wrong to interpret this as
 
-That interpretation is not correct.
+> “SAC explicitly rewards rare actions.”
 
-The better way to understand it is:
+The correct interpretation is:
 
-- SAC is not praising one rare action by itself
-- it is estimating the entropy of the whole policy through sampled log-probabilities
+This is not about praising one individual rare action.  
+It is a sample-based approximation of the entropy of the whole policy.
 
-So a single sample may look noisy,
-but over many samples the algorithm is approximating
+So
 
 $$
-\mathbb{E}_{a'\sim \pi}[ -\log \pi(a'\mid s') ].
+-\log \pi(a'\mid s')
 $$
 
-In that sense, the entropy term is not a reward for rare behavior,
-but a sample-based measure of policy spread.
+should not be interpreted as a reward for a rare action, but as a sampled value reflecting policy spread.
 
-## 9. Actor Structure in Continuous Control
-
-In continuous control, the actor usually outputs:
-
-- a mean $\mu(s)$
-- a standard deviation $\sigma(s)$
-
-and samples an internal action using
+A single sample can be noisy, but over training it approximates
 
 $$
-u=\mu(s)+\sigma(s)\odot \epsilon,\qquad \epsilon\sim \mathcal{N}(0,I).
+E_{a'\sim \pi}[-\log \pi(a'\mid s')]
 $$
 
-Then the final action is often obtained by
+## 12. How does the actor produce actions?
+
+In continuous control, the actor usually outputs
+
+- mean $\mu(s)$
+- standard deviation $\sigma(s)$
+
+Then it samples
+
+$$
+u=\mu(s)+\sigma(s)\odot \epsilon,\qquad \epsilon\sim N(0,I)
+$$
+
+and produces a bounded action through
 
 $$
 a=\tanh(u)
 $$
 
-to keep it bounded.
-
-So the actor does not directly output one deterministic action.
+So the actor does not directly output a single action.
 It defines a distribution and samples from it.
 
-## 10. Actor Loss
+## 13. Actor loss
 
-The actor is trained so that sampled actions both receive high Q-values and preserve sufficient entropy.
+The actor is trained so that its sampled actions
 
-A common actor loss is
+- receive high Q-values
+- while still maintaining policy entropy
+
+The actor loss is usually
 
 $$
-L_\pi
-=
-\mathbb{E}_{s\sim D,\; a\sim \pi_\theta}
-\left[
-\alpha \log \pi_\theta(a\mid s)
--
-\min(Q_{\phi_1}(s,a),Q_{\phi_2}(s,a))
-\right].
+L_\pi=E_{s\sim D,\;a\sim \pi_\theta}\left[\alpha \log \pi_\theta(a\mid s)-\min(Q_{\phi_1}(s,a),Q_{\phi_2}(s,a))\right]
 $$
 
-This can be interpreted as:
+This can be interpreted as
 
-- choose actions that critics value highly
-- but do not become too deterministic too early
+- $-Q$: choose actions with high Q
+- $\alpha \log \pi$: do not become too deterministic too quickly
 
-So the actor is always pulled between exploitation and stochastic exploration.
+So the actor is trained to choose actions that critics prefer, while still maintaining policy spread.
 
-## 11. Replay Buffer and Off-Policy Learning
+## 14. Does only the critic use the replay buffer?
 
-Another important point is that SAC is fully off-policy.
+No. The actor also uses it.
 
-- the critic uses replay-buffer transitions $(s,a,r,s',d)$
-- the actor also uses states sampled from the replay buffer
-- but the actor samples fresh actions from the current policy
+- critic: uses full transitions $(s,a,r,s',d)$ from the replay buffer
+- actor: uses states $s$ from the replay buffer, and samples fresh actions from the current policy
 
-So even the actor is not trained on purely on-policy state distributions.
-This is one of the reasons why SAC is much more sample-efficient than PPO.
+So the actor is not purely on-policy either.
+Its state distribution comes from the replay buffer.
 
-## 12. Temperature $\alpha$
+That is why SAC as a whole is off-policy.
 
-The coefficient $\alpha$ determines the trade-off between reward and entropy.
+## 15. What does temperature $\alpha$ do?
 
-- large $\alpha$ $\rightarrow$ entropy is emphasized more
-- small $\alpha$ $\rightarrow$ reward is emphasized more
+$\alpha$ controls the trade-off between reward and entropy.
+
+- large $\alpha$ → entropy is emphasized more
+- small $\alpha$ → reward is emphasized more
 
 Modern SAC usually does not keep $\alpha$ fixed.
-Instead, it often uses **automatic entropy tuning** with a target entropy such as
+Instead, it often uses automatic entropy tuning.
+
+That is, a target entropy is set, often roughly
 
 $$
-\mathcal{H}_{\text{target}} \approx -\dim(\mathcal{A}).
+H_{\text{target}} \approx -\dim(A)
 $$
 
-Then $\alpha$ is adjusted so that the policy entropy stays near that target.
+and $\alpha$ is adjusted so that the policy entropy stays near that target.
 
-## 13. Practical Tension in Locomotion
+## 16. Another important discomfort
 
-This is where the more practical questions begin.
+**“Shouldn’t control eventually become deterministic?”**
 
-In locomotion, late-stage control often requires:
+This is a very important question.
 
-- stable contact timing
+Yes. In problems like locomotion, where precise control matters, it is natural for the policy to become almost deterministic in the later stage.
+
+But SAC keeps entropy as part of the objective,
+so some degree of stochasticity may remain even in the late stage.
+
+That means SAC is very strong for early exploration,
+but can feel somewhat uncomfortable in late deterministic consolidation.
+
+This is not just a vague impression.
+It is a structural consequence of solving a soft objective.
+
+## 17. Why can this become a problem in late locomotion?
+
+In late locomotion training, what is often needed is
+
+- consistent foot timing
+- stable contact
 - precise joint coordination
 - repeatable gait
-- near-deterministic consistency
 
-But SAC structurally tries to preserve some stochasticity,
-because entropy is built directly into its objective.
+But if entropy continues to be maintained, then
 
-That means SAC can feel very natural in early exploration,
-but somewhat awkward in late-stage deterministic consolidation.
+- the mean may be good
+- but sampled actions may still fluctuate slightly
+- and that fluctuation may disrupt the gait
 
-This is not just a vague discomfort.
-It is a structural consequence of optimizing a soft objective rather than a purely reward-maximizing one.
+So the entropy term in SAC can be
 
-## 14. How Variance Is Really Learned
+- an advantage early in training
+- but a disadvantage in late precise locomotion
 
-Another practical issue is how the policy standard deviation is learned.
+## 18. How is variance actually learned in SAC?
 
-The variance is influenced by two forces:
+This was another important practical question.
 
-1. the entropy term, which tries to prevent collapse into a very sharp policy
-2. the Q term, which indirectly favors actions sampled from useful regions
+**How is the policy standard deviation $\sigma(s)$ actually learned?**
 
-So variance is not controlled only by entropy.
-It is also affected indirectly through the Q landscape.
+At first glance, it may seem like entropy alone controls variance,
+but in practice there are two forces:
 
-But the critic does **not** explicitly teach the actor
-what the correct state-dependent standard deviation should be.
+1. the entropy term  
+$$
+\alpha \log \pi(a\mid s)
+$$  
+which directly pushes the policy away from becoming too sharp
 
-So SAC can learn a useful action direction,
-while still keeping a variance structure that feels too coarse or too persistent for precise locomotion.
+2. the Q term  
+$$
+-\min(Q_1,Q_2)
+$$  
+which indirectly pushes variance depending on how sampled actions are evaluated
 
-## 15. Structural Limitation of the Diagonal Gaussian Actor
+So variance is determined by the balance between
 
-This is one of the most important criticisms in locomotion.
+- the entropy term trying to preserve spread
+- the Q term indirectly pulling the policy toward useful regions
 
-Standard SAC often uses a diagonal Gaussian policy.
-That means the policy is factorized across action dimensions.
+But the critic does **not** directly teach
+what the exact correct state-dependent std should be.
 
-If the action is 16-dimensional, the policy is effectively treated as if each dimension has its own independent mean and standard deviation.
+That means the critic can indicate good action directions,
+but it does not explicitly supervise the ideal variance structure itself.
 
-That is computationally practical, but structurally limited.
+## 19. Structural limitation of the continuous stochastic actor
 
-In locomotion, a good action is often not just
-“good values for 16 independent joints.”
-It is a **coordinated whole-body action pattern**.
+One of the most important criticisms we discussed was this:
 
-So diagonal Gaussian entropy can behave more like
-independent joint-level shaking
-than like structured exploration over meaningful alternative gaits.
+Standard SAC usually uses a **diagonal Gaussian actor**.
 
-## 16. Why Not Model the Full Joint Action Distribution?
+That means if the action is 16-dimensional, each action dimension effectively has its own independent mean and std.
 
-A natural question is:
+The problem is that in locomotion, a good action is not simply
 
-**If coordination matters so much, why not model the full joint action distribution directly?**
+- “16 individually good joint values”
+
+but rather
+
+- a coordinated whole-body joint action
+
+So diagonal Gaussian entropy can act less like
+“structured exploration over meaningful alternative gaits”
+and more like
+“independent joint-wise noise.”
+
+This is a serious structural weakness for locomotion.
+
+## 20. Why not directly model the full joint distribution?
+
+This leads to another natural question:
+
+**Why not directly model the full joint action distribution?**
 
 In theory, that would be more faithful.
-But in practice it becomes difficult because:
 
-- the action space is continuous
-- the dimension is high
-- sampling must remain efficient
-- log-probabilities must be differentiable
-- the whole model must remain trainable
+But in practice it is difficult because we need all of the following at once:
 
-So diagonal Gaussian should not be seen as trivially naive.
-It is a compromise between tractability and expressive power.
+- continuous action space
+- high dimensionality
+- efficient sampling
+- tractable log-probability computation
+- differentiability
+- stable optimization
 
-## 17. Practical Summary
+So the use of diagonal Gaussian should not be seen as simply “dumb.”
+It is better understood as a compromise between tractability and expressive power.
 
-So the strengths of SAC are clear:
+## 21. Practical limitations of SAC
 
-- off-policy sample efficiency
-- strong built-in exploration
-- powerful actor-critic structure
-- often a natural fit for high-level decision-making
+If we summarize the concerns above, standard SAC has the following practical limitations:
 
-But its limitations also matter, especially in locomotion:
+1. because it learns a soft Q, it can conflict with late deterministic control  
+2. it does not directly learn highly precise state-wise variance structure  
+3. diagonal Gaussian exploration may not match joint coordination  
+4. if entropy remains in the late stage, it may unnecessarily shake an already good gait  
 
-- the critic learns soft values rather than reward-only values
-- variance is not explicitly supervised in a precise state-wise way
-- diagonal Gaussian exploration may not align with coordinated whole-body control
-- entropy that is useful early may become awkward late
+So SAC is extremely strong for early exploration,
+but in low-level locomotion there can be a structural discomfort in the late stage.
 
-This does not mean SAC is weak.
-It means SAC is strongest when its objective structure matches the problem structure.
-In some tasks, especially high-level control or decision-making, this fit can be very good.
-In low-level locomotion, the fit can become less natural in the late stage.
+## 22. Then why is SAC still a strong algorithm?
 
-## Final Conclusion
+Even so, SAC remains a powerful method.
 
-Soft Actor-Critic is best understood not simply as “Q-learning plus stochastic policy,”
-but as a principled maximum entropy RL algorithm with both strong strengths and clear structural trade-offs.
+The reasons are clear:
 
-Its exploration behavior is one of its biggest advantages,
-but that same property can also create tension in settings where the final solution should become highly stable and nearly deterministic.
+1. it is off-policy, so sample efficiency is high  
+2. exploration is built directly into the objective  
+3. the actor-critic structure works very well in continuous action spaces  
+4. it can fit very naturally for navigation, direction choice, or high-level decision-making problems  
 
-That is why SAC is both a very powerful baseline and, at the same time,
-an algorithm that raises important practical questions in locomotion.
+So SAC is not a weak algorithm.
+It is an algorithm whose objective structure can be a very good match for some problems.
+
+## 23. A structural comparison with PPO
+
+We can roughly compare SAC and PPO like this.
+
+### PPO
+- on-policy
+- rollout-based
+- policy update via advantage
+- tends to sharpen toward more deterministic behavior in the late stage
+- often practically strong in locomotion
+
+### SAC
+- off-policy
+- replay-buffer-based
+- learns Q directly and guides the actor through it
+- maintains entropy structurally
+- exploration is strong
+- more sensitive to critic quality and entropy design
+
+So, in a very rough summary:
+
+- PPO problem: weak exploration, local optimum
+- SAC problem: critic reliability, entropy-induced stochasticity
+
+This perspective makes their structural difference more visible.
+
+## Final Summary
+
+SAC is an off-policy actor-critic algorithm that optimizes a maximum entropy objective including not only reward but also policy entropy.
+
+Because of this, it has major strengths:
+
+- high sample efficiency
+- strong exploration
+- a powerful baseline in continuous action spaces
+
+But it also has important practical limitations:
+
+- the critic learns a soft Q rather than a reward-only Q
+- variance structure is not explicitly supervised in a highly precise way
+- diagonal Gaussian policy has structural limits in coordinated control
+- in locomotion and other high-dimensional coordinated control problems, exploration can become structurally awkward in the late stage
+
+So SAC is a very powerful algorithm, but especially in low-level locomotion,
+one must think carefully about the tension between the strengths of exploration and the need for deterministic consolidation.
 
 ---
 
