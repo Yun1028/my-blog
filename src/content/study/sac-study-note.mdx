@@ -1,0 +1,315 @@
+---
+title: "Soft Actor-Critic: Objective, Intuition, and Practical Limits"
+pubDate: 2026-04-23
+description: "A compact study note on SAC, focusing on its objective, entropy term, soft Q-learning, and practical limitations in locomotion."
+---
+
+export const BASE = import.meta.env.BASE_URL;
+
+## Overview
+
+Soft Actor-Critic (SAC) is an off-policy actor-critic algorithm mainly used in continuous action spaces.
+Its defining feature is that it does not maximize reward alone.
+Instead, it maximizes **reward + entropy**, which means that the policy is encouraged to find good actions while also avoiding becoming deterministic too early.
+
+This places SAC in the family of **maximum entropy reinforcement learning**.
+
+## 1. Standard RL vs. SAC
+
+A standard reinforcement learning objective can be written as
+
+$$
+J(\pi) = \mathbb{E}\left[\sum_{t=0}^{\infty} \gamma^t r(s_t, a_t)\right].
+$$
+
+SAC instead optimizes the soft objective
+
+$$
+J_{\text{soft}}(\pi)
+=
+\mathbb{E}\left[
+\sum_{t=0}^{\infty}
+\gamma^t
+\left(
+r(s_t, a_t) + \alpha \mathcal{H}(\pi(\cdot \mid s_t))
+\right)
+\right].
+$$
+
+Here,
+
+- $\gamma$ is the discount factor
+- $\alpha$ controls the importance of entropy
+- $\mathcal{H}(\pi(\cdot \mid s))$ is the policy entropy
+
+So SAC tries to learn a policy that is both:
+
+- high-reward
+- not too quickly concentrated on a single action
+
+## 2. What Entropy Means
+
+Policy entropy measures how spread out or stochastic a policy is.
+
+In continuous action spaces,
+
+$$
+\mathcal{H}(\pi(\cdot \mid s))
+=
+- \int \pi(a \mid s)\log \pi(a \mid s)\, da
+$$
+
+or equivalently,
+
+$$
+\mathcal{H}(\pi(\cdot \mid s))
+=
+- \mathbb{E}_{a \sim \pi(\cdot \mid s)}[\log \pi(a \mid s)].
+$$
+
+This means:
+
+- high entropy $\rightarrow$ broad, stochastic policy
+- low entropy $\rightarrow$ sharp, nearly deterministic policy
+
+In practice, SAC does not compute the full integral directly.
+Instead, it samples actions from the policy and estimates the entropy term using sampled log-probabilities.
+
+## 3. Main Components of SAC
+
+A standard SAC implementation usually contains:
+
+- one actor
+- two critics
+- two target critics
+- one replay buffer
+
+The actor defines the policy distribution.
+The critics estimate soft Q-values.
+The target critics provide stable targets.
+The replay buffer stores past transitions so that the method can remain off-policy.
+
+A key point is that
+
+$$
+\min(Q_1, Q_2)
+$$
+
+is not a third critic.
+It is simply the more conservative value chosen from the two critics.
+
+## 4. Why Two Critics?
+
+Q-learning methods often suffer from overestimation when function approximation is used.
+If Q-values are predicted too optimistically, the actor may be pushed toward poor actions.
+
+SAC reduces this risk by using two critics and taking
+
+$$
+\min(Q_{\phi_1}(s,a), Q_{\phi_2}(s,a)).
+$$
+
+This makes the update more conservative and helps stabilize learning.
+
+## 5. Why Target Critics?
+
+If critic targets are computed using the current critics directly, the target itself moves too quickly and training becomes unstable.
+
+So SAC uses slowly updated target critics:
+
+$$
+\bar{\phi}_i \leftarrow \tau \phi_i + (1-\tau)\bar{\phi}_i,
+$$
+
+where $\tau$ is usually very small.
+
+This gives a slowly moving reference target and improves stability.
+
+## 6. SAC Learns a Soft Q, Not a Reward-Only Q
+
+This is one of the most important differences from a standard reward-only interpretation.
+
+SAC does not learn
+
+$$
+Q^\pi(s,a) = \mathbb{E}\left[\sum \gamma^t r_t\right].
+$$
+
+Instead, it learns a soft value that includes future entropy:
+
+$$
+Q^\pi_{\text{soft}}(s,a)
+=
+\mathbb{E}\left[
+\sum \gamma^t
+\left(r_t + \alpha \mathcal{H}(\pi(\cdot \mid s_t))\right)
+\right].
+$$
+
+So the critic values not only future reward, but also whether the future policy remains sufficiently stochastic.
+
+## 7. Why the Entropy Term Appears in the Critic Target
+
+For a transition $(s,a,r,s',d)$, SAC samples a next action
+
+$$
+a' \sim \pi_\theta(\cdot \mid s')
+$$
+
+and builds the target as
+
+$$
+y
+=
+r
++
+\gamma (1-d)
+\left(
+\min(Q_{\bar{\phi}_1}(s',a'), Q_{\bar{\phi}_2}(s',a'))
+-
+\alpha \log \pi_\theta(a' \mid s')
+\right).
+$$
+
+The term
+
+$$
+-\alpha \log \pi_\theta(a' \mid s')
+$$
+
+is the entropy contribution.
+
+This is not rewarding a rare action by itself.
+It is a sample-based approximation of the entropy term in the soft Bellman target.
+
+## 8. Actor Structure in Continuous Control
+
+In practice, the actor usually outputs:
+
+- mean $\mu(s)$
+- standard deviation $\sigma(s)$
+
+and samples an action using something like
+
+$$
+u = \mu(s) + \sigma(s) \odot \epsilon, \qquad \epsilon \sim \mathcal{N}(0, I)
+$$
+
+followed by
+
+$$
+a = \tanh(u)
+$$
+
+to keep actions bounded.
+
+So the actor does not output a single action directly.
+It outputs a distribution and samples from it.
+
+## 9. Actor Loss
+
+The actor is trained so that sampled actions both receive high critic values and preserve policy entropy.
+
+A common SAC actor loss is
+
+$$
+L_\pi
+=
+\mathbb{E}_{s \sim D,\, a \sim \pi_\theta}
+\left[
+\alpha \log \pi_\theta(a \mid s)
+-
+\min(Q_{\phi_1}(s,a), Q_{\phi_2}(s,a))
+\right].
+$$
+
+This can be read as:
+
+- choose actions with high Q
+- do not become too deterministic too early
+
+## 10. Practical Questions and Limits
+
+The most interesting practical questions arise in locomotion and other coordinated continuous-control problems.
+
+### (1) Entropy is useful early, but may be awkward late
+
+In early learning, strong stochasticity helps exploration.
+But in late locomotion training, what we often want is:
+
+- consistent foot timing
+- stable contacts
+- precise joint coordination
+- repeatable gait patterns
+
+If entropy remains important too long, the policy may keep injecting stochasticity into a behavior that should become highly stable.
+
+### (2) Critic guides action quality, but not precise variance structure
+
+The critic tells the actor which actions are good.
+But it does not directly tell the policy what the ideal state-dependent standard deviation should be.
+
+So variance learning can remain somewhat indirect or coarse.
+
+### (3) Diagonal Gaussian has a structural limitation
+
+In standard SAC, the actor is often modeled as a diagonal Gaussian.
+This means each action dimension is perturbed independently.
+
+That is computationally efficient, but in locomotion it can be problematic:
+good actions are usually not just individually good joint values, but coordinated whole-body action patterns.
+
+So diagonal Gaussian exploration can become unstructured joint-wise noise rather than structured coordinated exploration.
+
+## 11. Practical Interpretation
+
+This does not mean SAC is weak.
+It remains very strong because:
+
+- it is off-policy
+- it reuses data efficiently through replay
+- exploration is built into the objective
+- it is often well suited for high-level decision-making
+
+But for low-level locomotion, SAC can face a structural tension:
+
+- early exploration is a strength
+- persistent stochasticity can be a weakness in late precise control
+
+## Final Summary
+
+Soft Actor-Critic is an off-policy maximum entropy actor-critic algorithm.
+It learns a stochastic policy and a soft Q-function that includes both reward and future entropy.
+
+Its strengths are clear:
+
+- strong exploration
+- high sample efficiency
+- powerful continuous-control baseline
+
+Its practical limitations are also important:
+
+- the critic learns soft values, not purely reward-only values
+- policy variance is not directly supervised in a precise state-wise way
+- diagonal Gaussian exploration may not match strongly coordinated control
+- entropy that helps early exploration may conflict with late deterministic locomotion
+
+So SAC is best understood not just as a “better Q-learning method,” but as an algorithm that trades deterministic consolidation for persistent exploration in a principled way.
+
+---
+
+<div style={{ marginTop: "32px" }}>
+  <a
+    href={`${BASE}study-ko/sac-study-note-ko.html`}
+    style={{
+      display: "inline-block",
+      padding: "10px 16px",
+      borderRadius: "12px",
+      border: "1px solid #27304d",
+      background: "#121831",
+      textDecoration: "none"
+    }}
+  >
+    View Korean Translation
+  </a>
+</div>
