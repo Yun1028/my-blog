@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SAC 알고리즘 정리 | Korean Translation</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0b1020;
+      color: #e8ecf3;
+      line-height: 1.8;
+    }
+    main {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 40px 20px 80px;
+    }
+    h1, h2, h3 {
+      line-height: 1.25;
+    }
+    a {
+      color: #7aa2ff;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    .card {
+      border: 1px solid #27304d;
+      background: #121831;
+      border-radius: 18px;
+      padding: 24px;
+      margin-top: 20px;
+    }
+    .muted {
+      color: #a6b0c3;
+    }
+    .btn {
+      display: inline-block;
+      padding: 10px 16px;
+      border-radius: 12px;
+      border: 1px solid #27304d;
+      background: #121831;
+      text-decoration: none;
+      margin-top: 28px;
+    }
+    code {
+      background: #11182f;
+      padding: 2px 6px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="muted">Study Note · Korean Translation</p>
+    <h1>SAC 알고리즘 정리</h1>
+    <p class="muted">
+      기본 이론, 수식, 그리고 실제 연속 제어에서 느껴지는 직관과 한계를 짧게 정리한 자료
+    </p>
+
+    <div class="card">
+      <h2>개요</h2>
+      <p>
+        SAC(Soft Actor-Critic)는 연속 행동공간에서 주로 사용되는 off-policy actor-critic 강화학습 알고리즘이다.
+        가장 큰 특징은 reward만 최대화하는 것이 아니라,
+        <strong>reward + entropy</strong>를 함께 최대화한다는 점이다.
+      </p>
+      <p>
+        즉 SAC는 “좋은 행동을 찾되, 정책이 너무 빨리 deterministic해지지 않도록 하자”는 철학을 가진다.
+        그래서 SAC는 일반 RL이라기보다 <strong>maximum entropy reinforcement learning</strong> 계열에 속한다.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>1. 일반 RL과 SAC의 차이</h2>
+      <p>일반적인 강화학습은 discounted reward 합을 최대화한다.</p>
+      <p>
+        반면 SAC는 여기에 entropy 항을 추가하여,
+        높은 reward뿐 아니라 정책이 지나치게 빨리 한 행동에 몰리지 않도록 만든다.
+      </p>
+      <p>즉 SAC는 다음 두 가지를 동시에 원한다.</p>
+      <ul>
+        <li>reward가 큰 행동을 찾기</li>
+        <li>정책이 너무 빨리 뾰족해지지 않기</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>2. Entropy의 의미</h2>
+      <p>
+        policy entropy는 정책이 얼마나 퍼져 있는지, 즉 얼마나 stochastic한지를 나타낸다.
+      </p>
+      <ul>
+        <li>entropy가 크다 → 정책이 넓게 퍼져 있다</li>
+        <li>entropy가 작다 → 정책이 뾰족하고 deterministic하다</li>
+      </ul>
+      <p>
+        연속 행동공간에서는 이론적으로 적분 형태로 정의되지만,
+        실제 SAC는 이를 직접 적분하지 않고 샘플된 행동의 <code>log π(a|s)</code>를 이용해 Monte Carlo 방식으로 근사한다.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>3. SAC의 주요 구성</h2>
+      <ul>
+        <li>actor 1개</li>
+        <li>critic 2개</li>
+        <li>target critic 2개</li>
+        <li>replay buffer</li>
+      </ul>
+      <p>
+        두 critic 중 작은 값을 사용하는 이유는 Q overestimation을 줄이기 위해서다.
+      </p>
+      <p>
+        target critic은 online critic을 천천히 따라가는 안정된 복사본으로,
+        critic target이 너무 빠르게 흔들리는 것을 막는다.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>4. SAC의 critic은 일반 Q가 아니라 soft Q를 배운다</h2>
+      <p>
+        SAC의 critic은 reward-only Q가 아니라,
+        reward와 future entropy를 함께 포함한 <strong>soft Q</strong>를 학습한다.
+      </p>
+      <p>
+        그래서 critic target에도 entropy contribution이 들어간다.
+        이건 “희귀한 행동 하나를 보상한다”는 뜻이 아니라,
+        정책 전체의 entropy를 샘플 기반으로 근사하는 것에 가깝다.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>5. Actor 구조와 actor loss</h2>
+      <p>
+        연속 제어에서 actor는 보통 상태에서 mean과 std를 출력하고,
+        그 분포에서 행동을 샘플링한다.
+      </p>
+      <p>
+        actor는
+      </p>
+      <ul>
+        <li>critic이 높게 평가하는 행동을 선택하고</li>
+        <li>동시에 정책 entropy도 어느 정도 유지</li>
+      </ul>
+      <p>
+        하도록 학습된다.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>6. 왜 practical하게 위화감이 생기나</h2>
+      <p>
+        SAC는 초반 exploration에는 매우 강하다.
+        하지만 locomotion처럼 후반에 정밀한 제어가 필요한 문제에서는 entropy 유지가 오히려 어색해질 수 있다.
+      </p>
+      <p>후반 locomotion에서 보통 필요한 것은:</p>
+      <ul>
+        <li>일관된 발 타이밍</li>
+        <li>안정적인 contact</li>
+        <li>정밀한 관절 coordination</li>
+        <li>반복 가능한 gait</li>
+      </ul>
+      <p>
+        그런데 entropy가 끝까지 강하게 남으면 sampled action이 계속 흔들릴 수 있고,
+        이게 gait를 깨뜨릴 위험이 있다.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>7. Diagonal Gaussian의 구조적 한계</h2>
+      <p>
+        표준 SAC는 보통 diagonal Gaussian actor를 사용한다.
+        즉 각 행동 차원에 독립적인 noise가 들어가는 구조다.
+      </p>
+      <p>
+        그런데 locomotion에서는 좋은 행동이 각 관절이 따로 좋은 것이 아니라,
+        전체 joint action이 coordinated되어야 한다.
+      </p>
+      <p>
+        그래서 diagonal Gaussian entropy는 구조적인 대안 행동 탐색이라기보다,
+        관절별 독립 흔들림처럼 작동할 수 있다.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>최종 요약</h2>
+      <p>
+        SAC는 reward와 entropy를 함께 최적화하는 off-policy actor-critic 알고리즘이다.
+        탐색이 강하고 sample efficiency가 높다는 큰 장점이 있다.
+      </p>
+      <p>
+        하지만 locomotion 같은 정밀한 continuous control에서는 다음 한계도 중요하다.
+      </p>
+      <ul>
+        <li>critic은 soft Q를 배우므로 후반 deterministic control과 긴장 관계가 생길 수 있다</li>
+        <li>variance 구조를 상태별로 아주 정밀하게 직접 지도하지는 못한다</li>
+        <li>diagonal Gaussian 탐색은 coordinated control과 맞지 않을 수 있다</li>
+        <li>entropy가 후반에도 남으면 좋은 gait를 괜히 흔들 수 있다</li>
+      </ul>
+      <p>
+        따라서 SAC는 매우 강력한 알고리즘이지만,
+        특히 low-level locomotion에서는 exploration의 장점과 deterministic consolidation의 필요 사이의 균형을 항상 함께 봐야 한다.
+      </p>
+    </div>
+
+    <a class="btn" href="/my-blog/study/sac-study-note/">View English Original</a>
+  </main>
+</body>
+</html>
