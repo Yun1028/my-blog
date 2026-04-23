@@ -1,275 +1,149 @@
 ---
 title: "Late-Stage PPO Collapse, Negative Correction, and a Failed Intervention"
-pubDate: 2026-04-23
-description: "A hypothesis-driven analysis of late-stage PPO collapse in locomotion and why aggressively removing negative mean correction made training less stable."
-summary: "I hypothesized that negative-advantage samples do not provide strict directional evidence in locomotion, and tested a modified PPO update that weakened or removed negative mean repulsion. The result did not improve training and instead weakened recovery."
+pubDate: 2026-04-20
+description: "A compact research note on late-stage PPO collapse in locomotion and why aggressively blocking negative mean correction failed."
+summary: "I hypothesized that negative-advantage samples are not reliable directional evidence in locomotion, but the attempted fix weakened PPO's recovery ability instead of improving stability."
 status: "paused"
-tags: ["RL", "PPO", "Locomotion", "Failure Analysis", "Policy Optimization"]
+tags: ["RL", "PPO", "Locomotion", "Failure Analysis"]
 
-overview: "This page records a hypothesis-driven experiment on late-stage PPO collapse in locomotion learning. I focused on the possibility that negative-advantage samples may be structurally misused as directional evidence in continuous Gaussian PPO, especially in late-stage gait learning."
+overview: "This page records a compact hypothesis-driven analysis of late-stage PPO collapse in locomotion learning. The central question was whether negative-advantage samples are being interpreted too strongly as directional evidence in standard Gaussian PPO."
 
-hypothesis: "My initial hypothesis was that negative advantage provides evidence that a sampled action was bad, but does not necessarily provide reliable directional evidence for where the policy mean should move. In locomotion, the action space is continuous, but the value landscape may be highly non-smooth due to contact timing, coordination, friction, balance thresholds, and other dynamics. From this perspective, directly interpreting negative advantage as mean repulsion could contribute to late-stage instability."
+hypothesis: "My initial hypothesis was that negative advantage tells us that a sampled action was bad, but does not necessarily tell us which direction the policy mean should move. In locomotion, contact timing, balance limits, friction, and coordination effects make the value landscape highly non-smooth, so pushing the mean away from a bad sample may not reliably move the policy toward a better region."
 
 method:
-  - "Start from the standard Gaussian PPO interpretation, where positive advantage pulls the mean toward the sampled action and negative advantage pushes it away."
-  - "Assume that in locomotion, negative samples may not justify a directional mean shift."
-  - "Modify the actor update by weakening or blocking mean correction in selected negative-advantage ranges."
-  - "Use normalized or shifted normalized advantage to divide the update into regions."
-  - "Test whether this improves late-stage stability or reduces collapse."
+  - "Start from the standard Gaussian PPO mean-update interpretation."
+  - "Question whether negative advantage is reliable directional evidence in locomotion."
+  - "Modify PPO by weakening or blocking mean correction in selected negative-advantage ranges."
+  - "Compare the modified behavior against standard PPO in late-stage locomotion training."
 
 experimentDesign:
-  - "Baseline PPO was compared against modified actor-update rules."
-  - "Small negative advantages were treated as weak or unreliable evidence."
-  - "Medium negative ranges blocked mean repulsion and emphasized exploration pressure."
-  - "Large negative ranges still used stronger correction."
-  - "Large positive ranges retained standard PPO behavior or concentrated the policy further."
-  - "The main question was whether removing overly aggressive negative mean repulsion would improve late-stage locomotion stability."
+  - "Use normalized or shifted normalized advantage to divide negative samples into regions."
+  - "Weak negative region: reduce or block direct mean repulsion."
+  - "Medium negative region: encourage exploration more than directional correction."
+  - "Strong negative region: retain stronger correction."
+  - "Evaluate whether this improves late-stage stability or prevents collapse."
 
 timeline:
-  - date: 2026-04-23
+  - date: 2026-04-20
     title: "Main Experimental Result"
     status: "paused"
-    summary: "The intervention did not improve performance and instead made collapse easier in practice."
+    summary: "The intervention did not improve performance and often made recovery weaker."
     details:
-      - "Training did not show a meaningful performance gain over the baseline."
-      - "The modified update often reduced recovery strength rather than improving stability."
-      - "Blocking negative mean correction too aggressively weakened PPO's ability to return from slightly degraded states."
-      - "The experiment suggested that the original concern was partly valid, but the proposed fix was too strong."
+      - "Training did not show a meaningful improvement over baseline PPO."
+      - "The modified update often reduced recovery strength instead of improving stability."
+      - "Blocking negative mean correction too aggressively made collapse easier, not harder."
+      - "The problem statement remained meaningful, but the proposed fix was too strong."
 ---
 
-## Motivation
+## Summary
 
-PPO is usually interpreted in a very simple way.
+My initial question was simple:
 
-- positive advantage increases the probability of the sampled action
-- negative advantage decreases it
-- clipping prevents overly large policy drift
+**Why does PPO sometimes collapse abruptly in late-stage locomotion learning, even after a stable gait has already been formed?**
 
-Under that surface interpretation, one might expect training to improve gradually, or at least to degrade slowly.
-However, actual locomotion training often shows something much harsher.
+The standard interpretation of PPO is intuitive:
+positive advantage increases the probability of an action, and negative advantage decreases it.
+At the surface level, this suggests gradual improvement or at least gradual degradation.
 
-After a policy has already formed a reasonably good gait, it can suddenly collapse in the late stage.
-The robot may stop walking, fall into meaningless motion, or fail to recover even if training continues.
-This is not just ordinary performance fluctuation.
-It often looks much closer to an unrecoverable collapse.
+However, actual locomotion training often behaves differently.
+A policy can form a strong gait and then suddenly collapse into meaningless motion or complete failure, sometimes without recovering afterward.
 
-This discrepancy between the surface theory of PPO and the practical behavior of locomotion training was the starting point of this experiment.
+## Core Hypothesis
 
-## Standard PPO Interpretation
-
-The PPO objective can be written as the clipped surrogate objective,
-where the key intuition is that the sign of the advantage determines whether the sampled action should be encouraged or discouraged.
+My initial hypothesis was that, in locomotion, **negative advantage is not necessarily reliable directional evidence**.
 
 For a Gaussian policy,
 
 $$
-\pi_\theta(a \mid s) = \mathcal{N}(\mu_\theta(s), \sigma_\theta(s)^2)
+\pi_\theta(a \mid s)=\mathcal{N}(\mu_\theta(s), \sigma_\theta(s)^2)
 $$
 
-and the mean-direction interpretation of the policy gradient can be summarized as
+and the mean-direction interpretation of the policy gradient can be written as
 
 $$
-g_\mu \propto \hat A_t \frac{(a_t - \mu)}{\sigma^2}.
+g_\mu \propto \hat A_t \frac{(a_t-\mu)}{\sigma^2}.
 $$
 
-Under this view:
+This means:
 
 - if $\hat A_t > 0$, the mean is pulled toward the sampled action
 - if $\hat A_t < 0$, the mean is pushed away from the sampled action
 
-This is the exact point where I began to question the standard interpretation.
+The problem is that in locomotion, value is not necessarily smooth with respect to action.
+Because of contact timing, balance thresholds, friction, and coordination effects, a bad action does **not** always imply that moving the mean in the opposite direction is better.
 
-## Initial Hypothesis
+So my initial concern was:
 
-My first core hypothesis was:
+$$
+\text{negative sample} \neq \text{reliable directional evidence}.
+$$
 
-**Negative advantage tells us that an action was bad, but it does not necessarily tell us which direction the mean should move.**
+## Proposed Fix
 
-This was motivated by the structure of locomotion.
-The action space is continuous, but the value space is not necessarily smooth in the same way.
-Even a small change in action may not correspond to a small and predictable change in return.
+Based on that idea, I tested a modified PPO update that weakened or blocked mean correction in selected negative-advantage ranges.
 
-In locomotion, the value landscape can be highly sensitive to:
+The basic intention was:
 
-- foot contact timing
-- joint coordination
-- friction conditions
-- balance limits
-- contact dynamics
-- slip or fall thresholds
+- weak negative samples: do not directly repel the mean
+- medium negative samples: reduce directional correction and emphasize exploration
+- strong negative samples: keep stronger correction
 
-From that perspective, if some action $a=1$ was bad, and the current mean is somewhere near $3$,
-there is no guarantee that moving the mean in the opposite direction of that sample is actually moving toward a better region in value space.
+The expectation was that this would reduce late-stage instability by preventing unnecessary destructive repulsion.
 
-So my initial interpretation was that standard Gaussian PPO might be using negative samples too aggressively as directional signals.
+## Result
 
-## Extended Hypothesis About Late-Stage Collapse
+The result did not support the intervention.
 
-This idea expanded into a broader late-stage collapse hypothesis.
+Training did not improve meaningfully, and in many cases the policy became easier to break.
+Instead of improving stability, the modified update often reduced recovery strength.
 
-### 1. Late-stage policies are fragile
+## What I Learned
 
-In the early stage, the policy is wide and coarse.
-The gait is not yet highly refined, and noisy gradients are easier to tolerate.
+The most important lesson was that my original concern was **partly correct but incomplete**.
 
-In the late stage:
+The following statement still seems meaningful:
 
-- the mean concentrates in a narrow high-performance region
-- variance becomes smaller
-- the gait depends on very precise coordination
+$$
+\text{value space is not fully smooth} \Rightarrow
+\text{negative advantage is imperfect directional evidence}.
+$$
 
-At that point, small critic errors, rollout noise, or contact noise may be enough to push the policy out of a good basin.
-
-### 2. Old-new mismatch becomes more dangerous
-
-PPO collects rollouts using the old policy and then reuses the same batch across multiple epochs.
-This introduces an old-new mismatch by design.
-
-In the early stage, this mismatch may be behaviorally tolerable.
-In the late stage, however, even a similar ratio or KL change can correspond to a much more catastrophic behavior-space shift.
-
-### 3. Advantage normalization can produce unnecessary negative signals
-
-PPO often uses normalized advantage.
-This helps optimization, but in the late stage it can also mean that many actions which are still absolutely reasonable become negative simply because they are slightly below the batch mean.
-
-As a result, the policy may begin to push away already useful actions relative to other useful actions.
-That can create an internal erosion process inside an already formed gait manifold.
-
-## Proposed Intervention
-
-Based on that interpretation, I proposed an intervention that changed the actor update in the negative-advantage region.
-
-The basic idea was:
-
-- do not directly repel the mean for weakly negative samples
-- use negative samples as evidence that the sampled action was bad
-- avoid interpreting them too strongly as directional evidence
-- instead, use exploration pressure or reduced correction in selected ranges
-
-The intended structure was roughly:
-
-- **small negative**: skip mean update
-- **medium negative**: block mean repulsion and encourage exploration
-- **large negative**: keep standard PPO correction
-- **large positive**: keep standard PPO and sometimes reduce variance
-
-The core expectation was that if only truly strong negative signals caused direct correction,
-late-stage stability would improve.
-
-## Experimental Result
-
-The result did not match the expectation.
-
-Performance did not improve meaningfully, and in practice the modified policy often became easier to break.
-This was not just a matter of slower learning.
-The training also appeared to lose recovery strength and became more fragile once the gait started to degrade.
-
-So while the original problem setting was not meaningless, the actual intervention did not work as intended.
-
-## What the Failure Revealed
-
-The most important lesson from this failed experiment was that my initial concern, although partly valid, was incomplete.
-
-The statement
-
-> "Value space is not smooth in the same way as action space"
-
-still seems important.
-
-Likewise, the claim that negative advantage is not perfect directional evidence still seems meaningful.
-
-However, I had underweighted another critical part of PPO learning:
+But I underestimated another important fact:
 
 **PPO does not only improve by reinforcing good actions.  
 It also recovers from slightly degraded states through corrective updates.**
 
-That means learning is not a purely monotonic process.
-The policy can move into somewhat worse regions and then recover from them.
-In that setting, negative correction is not only a possible source of instability.
-It is also part of the mechanism that helps the policy return.
+That means negative correction is not only a possible source of instability.
+It is also part of the policy's recovery mechanism.
 
-By blocking mean correction too aggressively in selected negative ranges,
-I did not merely reduce potentially misguided repulsion.
-I also removed part of PPO's ability to recover from locally degraded states.
+So if negative correction is removed too aggressively, the update loses not only harmful repulsion, but also part of its ability to return from local degradation.
 
 ## Revised Interpretation
 
-The better interpretation now seems to be the following.
+My revised conclusion is:
 
-### What still seems correct
+1. Negative samples are not perfect directional evidence.
+2. But removing negative correction too strongly also removes part of PPO's recovery ability.
 
-- Negative advantage is not perfect directional evidence.
-- Value space in locomotion can be non-smooth and region-sensitive.
-- Standard Gaussian PPO may therefore be an imperfect interpretation of negative samples.
-
-### What I originally underestimated
-
-- PPO learning is a repeated process of degradation and recovery, not just simple reinforcement of good samples.
-- Local continuity is not fully absent, even if value space is not globally smooth.
-- Nearby actions may still contain enough structure for PPO to use them as a practical recovery mechanism.
-- Negative correction, although imperfect, may still preserve an important path back toward a useful gait.
-
-This means the original intervention failed because it treated the problem too absolutely.
-I was right to question the strict directional interpretation of negative samples,
-but too aggressive in removing the corrective pathway itself.
-
-## Final Revised Hypothesis
-
-My revised hypothesis is more balanced:
-
-Late-stage PPO collapse in locomotion is likely driven by the interaction of several factors:
-
-- narrow late-stage gait manifolds
-- old-new mismatch
-- critic noise
-- contact-sensitive dynamics
-- batch-relative normalization
-
-Within that setting, standard negative mean repulsion may indeed be an imperfect interpretation.
-However, removing negative mean correction too aggressively is not the right solution,
-because it also weakens PPO's ability to recover from local degradation.
-
-So two statements now seem true at the same time:
-
-1. **Negative samples are not perfect directional evidence.**
-2. **Removing negative correction too aggressively also removes part of PPO's recovery ability.**
-
-That balance is the key lesson of this failed experiment.
-
-## Future Direction
-
-The next direction should not be to completely block negative correction.
-Instead, a more promising direction may be:
+So the better direction is not to eliminate negative mean correction, but to weaken it more carefully:
 
 $$
-g_\mu^{\text{mod}} = \alpha(\tilde A)\, g_\mu^{\text{ppo}}, \qquad 0 < \alpha(\tilde A) < 1
+g_\mu^{\mathrm{mod}} = \alpha(\tilde A)\, g_\mu^{\mathrm{ppo}}, \qquad 0 < \alpha(\tilde A) < 1
 $$
 
-where the correction is weakened, not removed.
+rather than
 
-More broadly, future designs should follow these principles:
+$$
+g_\mu^{\mathrm{mod}} = 0
+$$
 
-- do not eliminate too much actor-side corrective signal
-- weaken negative correction only in a controlled way
-- avoid assuming that local continuity is completely absent
-- remember that recovery is part of learning, not just forward improvement
-- be careful with state-independent variance control, since global log-std does not necessarily match sample-specific exploration intent
+over a broad negative range.
 
-## Conclusion
+## Final Conclusion
 
-This experiment did not validate my original solution.
-But it did not invalidate the problem itself.
+This experiment did not validate my proposed solution.
+But it clarified something important:
 
-The original concern remains meaningful:
-negative samples in locomotion may not provide strict directional evidence in the clean way that standard Gaussian PPO seems to assume.
+**My initial hypothesis was useful as a problem statement, but too aggressive as a solution.**
 
-What failed was the intervention.
-I assumed too directly that blocking negative mean repulsion would improve stability.
-In practice, it also removed part of the policy's resilience.
-
-So the final lesson is this:
-
-**The initial hypothesis was useful as a problem statement, but too strong when translated into a solution.**
-
-That failure is still valuable, because it leads to a more precise and more balanced direction for the next experiment.
+The next step is to design a more balanced intervention that reduces destructive negative correction without destroying PPO's recovery pathway.
